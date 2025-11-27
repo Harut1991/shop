@@ -25,11 +25,28 @@ const db = new sqlite3.Database(dbPath, (err) => {
     console.error('Error opening database:', err.message);
   } else {
     console.log('Connected to SQLite database');
-    initializeDatabase();
+    runMigrations();
   }
 });
 
-// Initialize database tables
+// Run database migrations
+async function runMigrations() {
+  const MigrationRunner = require('./migrations/migrate');
+  const runner = new MigrationRunner(dbPath);
+  
+  try {
+    await runner.runMigrations();
+    console.log('Database migrations completed');
+  } catch (error) {
+    console.error('Migration error:', error);
+    // Fallback to old initialization for backward compatibility
+    console.log('Falling back to legacy database initialization...');
+    initializeDatabase();
+  }
+}
+
+// Legacy database initialization (kept for backward compatibility)
+// New deployments should use migrations instead
 function initializeDatabase() {
   // Users table with role: 'super_admin', 'admin', 'user'
   db.run(`CREATE TABLE IF NOT EXISTS users (

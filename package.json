@@ -11,7 +11,8 @@
     "install:all": "npm install && cd client && npm install --include=dev && cd ..",
     "build": "cd client && npm run build && cd ..",
     "postinstall": "cd client && npm install",
-    "start:prod": "cross-env NODE_ENV=production node server.js"
+    "start:prod": "cross-env NODE_ENV=production node server.js",
+    "migrate": "node migrations/migrate.js"
   },
   "keywords": ["shop", "admin", "ecommerce"],
   "author": "",

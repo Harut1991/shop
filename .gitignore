@@ -20,6 +20,9 @@ dist/
 shop.db
 shop.db-journal
 
+# Keep migrations folder but ignore any local migration files
+# migrations/migrations/*.local.js
+
 # Logs
 logs
 *.log
