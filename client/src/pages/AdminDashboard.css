@@ -224,3 +224,412 @@
   margin-bottom: 0;
 }
 
+/* Header responsive classes */
+.header-title-responsive {
+  font-size: 20px !important;
+}
+
+.header-actions-responsive {
+  flex-wrap: nowrap;
+}
+
+.header-welcome-text {
+  font-size: 14px;
+}
+
+.header-logout-btn {
+  font-size: 14px;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .header-title-responsive {
+    font-size: 16px !important;
+  }
+
+  .header-actions-responsive {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .header-welcome-text {
+    font-size: 12px;
+  }
+
+  .header-logout-btn {
+    width: 100%;
+    font-size: 12px;
+  }
+
+  .admin-header-responsive {
+    padding: 0 12px !important;
+    min-height: 60px;
+  }
+}
+
+/* Extra small devices - show shorter text */
+@media (max-width: 480px) {
+  .header-welcome-text {
+    font-size: 11px;
+  }
+  
+  .header-welcome-text::after {
+    content: '';
+  }
+  .admin-dashboard {
+    padding: 0;
+  }
+
+  .admin-header {
+    padding: 8px 0;
+  }
+
+  .admin-header .container {
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .admin-header h1 {
+    font-size: 16px;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .toast {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    min-width: auto;
+    max-width: 100%;
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+
+  .modal-content {
+    width: 95%;
+    max-width: 100%;
+    padding: 16px;
+    margin: 10px;
+  }
+
+  .modal-content h3 {
+    font-size: 16px;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-actions button {
+    width: 100%;
+  }
+
+  .table {
+    font-size: 11px;
+  }
+
+  .table th,
+  .table td {
+    padding: 6px 4px;
+  }
+
+  .btn-sm {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+}
+
+/* Ant Design Component Overrides for Mobile */
+@media (max-width: 768px) {
+  /* Header adjustments */
+  .ant-layout-header {
+    padding: 0 12px !important;
+    height: auto !important;
+    min-height: 60px;
+    flex-wrap: wrap;
+  }
+
+  .ant-layout-header .ant-typography {
+    font-size: 16px !important;
+    margin: 8px 0 !important;
+  }
+
+  .ant-layout-header .ant-space {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  .ant-layout-header .ant-space-item {
+    flex: 1;
+  }
+
+  .ant-layout-header .ant-btn {
+    width: 100%;
+    font-size: 12px;
+  }
+
+  /* Content padding */
+  .ant-layout-content {
+    padding: 12px !important;
+  }
+
+  /* Tabs */
+  .ant-tabs-nav {
+    margin-bottom: 12px !important;
+  }
+
+  .ant-tabs-tab {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+
+  .ant-tabs-tab-btn {
+    font-size: 12px !important;
+  }
+
+  /* Cards */
+  .ant-card {
+    margin-bottom: 12px;
+  }
+
+  .ant-card-head {
+    padding: 12px 16px !important;
+    min-height: 48px !important;
+  }
+
+  .ant-card-head-title {
+    font-size: 14px !important;
+    padding: 0 !important;
+  }
+
+  .ant-card-extra {
+    margin-left: 0 !important;
+  }
+
+  .ant-card-extra .ant-btn {
+    font-size: 11px !important;
+    padding: 4px 8px !important;
+    height: auto !important;
+  }
+
+  .ant-card-body {
+    padding: 12px !important;
+  }
+
+  /* Tables */
+  .ant-table {
+    font-size: 12px;
+  }
+
+  .ant-table-thead > tr > th {
+    padding: 8px 4px !important;
+    font-size: 11px !important;
+  }
+
+  .ant-table-tbody > tr > td {
+    padding: 8px 4px !important;
+    font-size: 11px !important;
+  }
+
+  /* Make tables horizontally scrollable on mobile */
+  .ant-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ant-table {
+    min-width: 600px;
+  }
+
+  /* Buttons in tables */
+  .ant-table .ant-btn {
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+    height: auto !important;
+    margin: 2px;
+  }
+
+  .ant-table .ant-space {
+    flex-wrap: wrap;
+    gap: 4px !important;
+  }
+
+  /* Tags */
+  .ant-tag {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+    margin: 2px !important;
+  }
+
+  /* Modals */
+  .ant-modal {
+    max-width: 95vw !important;
+    margin: 10px auto !important;
+  }
+
+  .ant-modal-content {
+    padding: 16px !important;
+  }
+
+  .ant-modal-header {
+    padding: 12px 16px !important;
+  }
+
+  .ant-modal-title {
+    font-size: 16px !important;
+  }
+
+  .ant-modal-body {
+    padding: 16px !important;
+  }
+
+  .ant-modal-footer {
+    padding: 12px 16px !important;
+  }
+
+  .ant-modal-footer .ant-btn {
+    margin: 4px 0;
+    width: 100%;
+  }
+
+  /* Forms */
+  .ant-form-item {
+    margin-bottom: 16px !important;
+  }
+
+  .ant-form-item-label {
+    padding-bottom: 4px !important;
+  }
+
+  .ant-form-item-label > label {
+    font-size: 12px !important;
+  }
+
+  .ant-input,
+  .ant-input-password,
+  .ant-select-selector {
+    font-size: 14px !important;
+    padding: 6px 11px !important;
+  }
+
+  .ant-select {
+    font-size: 14px !important;
+  }
+
+  /* Select dropdowns */
+  .ant-select-multiple .ant-select-selection-item {
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+    margin: 2px !important;
+  }
+
+  /* Textarea */
+  .ant-input {
+    font-size: 14px !important;
+  }
+
+  /* Space component */
+  .ant-space {
+    gap: 8px !important;
+  }
+
+  .ant-space-item {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Popconfirm */
+  .ant-popconfirm {
+    max-width: 90vw;
+  }
+
+  /* Dashboard stats cards */
+  .ant-card .ant-statistic-title {
+    font-size: 12px !important;
+  }
+
+  .ant-card .ant-statistic-content {
+    font-size: 24px !important;
+  }
+}
+
+/* Extra small devices (phones in portrait) */
+@media (max-width: 480px) {
+  .admin-header h1 {
+    font-size: 14px;
+  }
+
+  .ant-layout-header .ant-typography {
+    font-size: 14px !important;
+  }
+
+  .ant-tabs-tab {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+
+  .ant-card-head-title {
+    font-size: 13px !important;
+  }
+
+  .ant-table {
+    font-size: 10px;
+    min-width: 500px;
+  }
+
+  .ant-table-thead > tr > th {
+    font-size: 10px !important;
+    padding: 6px 2px !important;
+  }
+
+  .ant-table-tbody > tr > td {
+    font-size: 10px !important;
+    padding: 6px 2px !important;
+  }
+
+  .ant-table .ant-btn {
+    font-size: 10px !important;
+    padding: 1px 4px !important;
+  }
+
+  .ant-modal {
+    max-width: 98vw !important;
+    margin: 5px auto !important;
+  }
+
+  .ant-modal-content {
+    padding: 12px !important;
+  }
+
+  .ant-form-item-label > label {
+    font-size: 11px !important;
+  }
+
+  .ant-input,
+  .ant-input-password,
+  .ant-select-selector {
+    font-size: 13px !important;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .ant-layout-header {
+    min-height: 50px !important;
+  }
+
+  .ant-layout-content {
+    padding: 8px !important;
+  }
+}
+

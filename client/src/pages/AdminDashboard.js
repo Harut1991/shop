@@ -675,19 +675,37 @@ const AdminDashboard = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ background: '#001529', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Header className="admin-header-responsive" style={{ 
+        background: '#001529', 
+        padding: '0 24px', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        flexWrap: 'wrap'
+      }}>
         <Title 
           level={3} 
-          style={{ color: 'white', margin: 0, cursor: 'pointer' }}
+          className="header-title-responsive"
+          style={{ 
+            color: 'white', 
+            margin: 0, 
+            cursor: 'pointer'
+          }}
           onClick={() => navigate('/admin')}
         >
           Shop Admin Panel
         </Title>
-        <Space>
-          <span style={{ color: 'white' }}>
+        <Space className="header-actions-responsive">
+          <span className="header-welcome-text" style={{ color: 'white' }}>
             Welcome, {user?.username} ({user?.role})
           </span>
-          <Button type="primary" danger icon={<LogoutOutlined />} onClick={logout}>
+          <Button 
+            type="primary" 
+            danger 
+            icon={<LogoutOutlined />} 
+            onClick={logout}
+            className="header-logout-btn"
+          >
             Logout
           </Button>
         </Space>

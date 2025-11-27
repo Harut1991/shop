@@ -1,5 +1,97 @@
 .product-detail-container {
   max-width: 800px;
   margin: 0 auto;
+  padding: 16px;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .product-detail-container {
+    padding: 12px;
+    max-width: 100%;
+  }
+
+  /* Ant Design Component Overrides */
+  .ant-layout-header {
+    padding: 0 12px !important;
+    height: auto !important;
+    min-height: 60px;
+    flex-wrap: wrap;
+  }
+
+  .ant-layout-header .ant-typography {
+    font-size: 16px !important;
+    margin: 8px 0 !important;
+  }
+
+  .ant-layout-header .ant-space {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  .ant-layout-header .ant-btn {
+    width: 100%;
+    font-size: 12px;
+  }
+
+  .ant-layout-content {
+    padding: 12px !important;
+  }
+
+  .ant-card {
+    margin-bottom: 12px;
+  }
+
+  .ant-card-head {
+    padding: 12px 16px !important;
+  }
+
+  .ant-card-head-title {
+    font-size: 16px !important;
+  }
+
+  .ant-card-body {
+    padding: 12px !important;
+  }
+
+  .ant-descriptions-item-label {
+    font-size: 12px !important;
+    font-weight: 600;
+  }
+
+  .ant-descriptions-item-content {
+    font-size: 13px !important;
+  }
+
+  .ant-typography-title {
+    font-size: 18px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-detail-container {
+    padding: 8px;
+  }
+
+  .ant-layout-header .ant-typography {
+    font-size: 14px !important;
+  }
+
+  .ant-card-head-title {
+    font-size: 14px !important;
+  }
+
+  .ant-descriptions-item-label {
+    font-size: 11px !important;
+  }
+
+  .ant-descriptions-item-content {
+    font-size: 12px !important;
+  }
+
+  .ant-typography-title {
+    font-size: 16px !important;
+  }
 }
 
