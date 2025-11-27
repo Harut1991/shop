@@ -530,28 +530,28 @@ const AdminDashboard = () => {
         </span>
       ),
       children: (
-        <Card title="Dashboard">
-          <div style={{ padding: '20px' }}>
-            <Title level={3}>Welcome to Shop Admin Panel</Title>
-            <p>Welcome, <strong>{user?.username}</strong>! Your role: {getRoleTag(user?.role)}</p>
-            <div style={{ marginTop: '30px' }}>
-              <Title level={4}>Quick Stats</Title>
-              <Space size="large" wrap>
-                <Card style={{ minWidth: '200px' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1890ff' }}>
+        <Card title="Dashboard" className="dashboard-card">
+          <div className="dashboard-content">
+            <Title level={3} className="dashboard-welcome-title">Welcome to Shop Admin Panel</Title>
+            <p className="dashboard-welcome-text">Welcome, <strong>{user?.username}</strong>! Your role: {getRoleTag(user?.role)}</p>
+            <div className="dashboard-stats-section">
+              <Title level={4} className="dashboard-stats-title">Quick Stats</Title>
+              <Space size="large" wrap className="dashboard-stats-cards">
+                <Card className="stat-card stat-card-products">
+                  <div className="stat-card-content">
+                    <div className="stat-number stat-number-products">
                       {products.length}
                     </div>
-                    <div>Products</div>
+                    <div className="stat-label">Products</div>
                   </div>
                 </Card>
                 {isAdmin() && (
-                  <Card style={{ minWidth: '200px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#52c41a' }}>
+                  <Card className="stat-card stat-card-users">
+                    <div className="stat-card-content">
+                      <div className="stat-number stat-number-users">
                         {users.length}
                       </div>
-                      <div>Users</div>
+                      <div className="stat-label">Users</div>
                     </div>
                   </Card>
                 )}

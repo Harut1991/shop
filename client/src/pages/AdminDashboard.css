@@ -256,16 +256,20 @@
 
   .header-welcome-text {
     font-size: 12px;
+    word-break: break-word;
   }
 
   .header-logout-btn {
     width: 100%;
     font-size: 12px;
+    margin-top: 8px;
   }
 
   .admin-header-responsive {
     padding: 0 12px !important;
-    min-height: 60px;
+    min-height: auto;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
   }
 }
 
@@ -376,25 +380,49 @@
   .ant-layout-header .ant-btn {
     width: 100%;
     font-size: 12px;
+    margin-top: 8px;
+  }
+
+  .ant-layout-header .ant-space-item:last-child {
+    width: 100%;
   }
 
   /* Content padding */
   .ant-layout-content {
-    padding: 12px !important;
+    padding: 12px 8px !important;
+  }
+
+  /* Ensure no horizontal overflow */
+  .ant-layout {
+    overflow-x: hidden;
   }
 
   /* Tabs */
   .ant-tabs-nav {
     margin-bottom: 12px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ant-tabs-nav-list {
+    flex-wrap: nowrap !important;
+    min-width: max-content;
   }
 
   .ant-tabs-tab {
     padding: 8px 12px !important;
     font-size: 12px !important;
+    white-space: nowrap;
   }
 
   .ant-tabs-tab-btn {
     font-size: 12px !important;
+  }
+
+  .ant-tabs-tab-btn span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
 
   /* Cards */
@@ -445,10 +473,32 @@
   .ant-table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    width: 100%;
+    margin: 0 -8px;
+    padding: 0 8px;
   }
 
   .ant-table {
     min-width: 600px;
+  }
+
+  /* Table container scrollbar styling */
+  .ant-table-wrapper::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .ant-table-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  .ant-table-wrapper::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+
+  .ant-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #555;
   }
 
   /* Buttons in tables */
@@ -561,6 +611,131 @@
   .ant-card .ant-statistic-content {
     font-size: 24px !important;
   }
+
+  /* Dashboard specific styles */
+  .dashboard-card .ant-card-body {
+    padding: 16px !important;
+  }
+
+  .dashboard-content {
+    padding: 0 !important;
+  }
+
+  .dashboard-welcome-title {
+    font-size: 18px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .dashboard-welcome-text {
+    font-size: 13px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .dashboard-stats-section {
+    margin-top: 20px !important;
+  }
+
+  .dashboard-stats-title {
+    font-size: 14px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .dashboard-stats-cards {
+    width: 100% !important;
+    gap: 12px !important;
+  }
+
+  .stat-card {
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .stat-card-content {
+    text-align: center;
+    padding: 8px;
+  }
+
+  .stat-number {
+    font-size: 28px !important;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+
+  .stat-number-products {
+    color: #1890ff;
+  }
+
+  .stat-number-users {
+    color: #52c41a;
+  }
+
+  .stat-label {
+    font-size: 13px !important;
+    color: #666;
+  }
+}
+
+/* Dashboard responsive styles - Desktop */
+.dashboard-card .ant-card-body {
+  padding: 24px;
+}
+
+.dashboard-content {
+  padding: 0;
+}
+
+.dashboard-welcome-title {
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.dashboard-welcome-text {
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.dashboard-stats-section {
+  margin-top: 30px;
+}
+
+.dashboard-stats-title {
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.dashboard-stats-cards {
+  width: 100%;
+  gap: 16px;
+}
+
+.stat-card {
+  flex: 1 1 auto;
+  min-width: 200px;
+}
+
+.stat-card-content {
+  text-align: center;
+  padding: 16px;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.stat-number-products {
+  color: #1890ff;
+}
+
+.stat-number-users {
+  color: #52c41a;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #666;
 }
 
 /* Extra small devices (phones in portrait) */
@@ -619,6 +794,53 @@
   .ant-input-password,
   .ant-select-selector {
     font-size: 13px !important;
+  }
+
+  /* Dashboard mobile improvements */
+  .dashboard-card .ant-card-body {
+    padding: 12px !important;
+  }
+
+  .dashboard-welcome-title {
+    font-size: 16px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .dashboard-welcome-text {
+    font-size: 12px !important;
+    margin-bottom: 16px !important;
+    line-height: 1.5;
+  }
+
+  .dashboard-stats-section {
+    margin-top: 16px !important;
+  }
+
+  .dashboard-stats-title {
+    font-size: 13px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .dashboard-stats-cards {
+    gap: 10px !important;
+  }
+
+  .stat-card {
+    min-width: 100% !important;
+    margin-bottom: 8px;
+  }
+
+  .stat-card-content {
+    padding: 12px;
+  }
+
+  .stat-number {
+    font-size: 24px !important;
+    margin-bottom: 6px;
+  }
+
+  .stat-label {
+    font-size: 12px !important;
   }
 }
 
