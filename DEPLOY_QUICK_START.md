@@ -1,54 +1,43 @@
 # Quick Deployment Guide
 
-## Fastest Option: Railway (Recommended)
+## 🆓 FREE Deployment Options
 
-### Step 1: Prepare Your Code
-```bash
-# Make sure everything is committed to Git
-git add .
-git commit -m "Ready for deployment"
-```
+### Option 1: Render (FREE - Recommended) ⭐
 
-### Step 2: Deploy to Railway
+### Step 1: Deploy to Render (FREE)
 
-1. Go to [railway.app](https://railway.app) and sign up/login
-2. Click "New Project" → "Deploy from GitHub repo"
-3. Select your repository
-4. Railway will auto-detect Node.js
+1. Go to [render.com](https://render.com) and sign up (FREE account)
+2. Click "New +" → "Web Service"
+3. Connect your GitHub account
+4. Select repository: `Harut1991/shop`
 
-### Step 3: Set Environment Variables
+### Step 2: Configure
 
-In Railway dashboard, go to Variables tab and add:
-- `NODE_ENV` = `production`
-- `JWT_SECRET` = (generate a random string, e.g., use: `openssl rand -base64 32`)
+- **Name**: `shop-admin` (or any name)
+- **Build Command**: `npm run install:all && npm run build`
+- **Start Command**: `npm start`
+- **Environment Variables**:
+  - `NODE_ENV` = `production`
+  - `JWT_SECRET` = (generate with command below)
+  - `PORT` = `10000`
 
-### Step 4: Deploy
+### Step 3: Deploy
 
-Railway will automatically:
-- Install dependencies
-- Build the React app
-- Start the server
+- Click "Create Web Service"
+- Wait 5-10 minutes
+- Your app will be live at: `https://shop-admin.onrender.com`
 
-### Step 5: Access Your App
+**Note:** Free tier apps sleep after 15 min inactivity, but wake automatically.
 
-- Railway provides a URL like: `https://your-app.railway.app`
-- Visit the URL and login with:
-  - Username: `admin`
-  - Password: `admin123`
-  - **Change password immediately!**
+## Alternative: Fly.io (FREE - Always On)
 
-## Alternative: Render
+1. Install Fly CLI: `winget install -e --id Fly.Flyctl`
+2. Sign up: `fly auth signup`
+3. Deploy: `fly launch` (follow prompts)
+4. Set secrets: `fly secrets set JWT_SECRET=your-secret`
+5. Deploy: `fly deploy`
 
-1. Go to [render.com](https://render.com) and sign up
-2. Click "New" → "Web Service"
-3. Connect your GitHub repository
-4. Settings:
-   - **Build Command**: `npm run install:all && npm run build`
-   - **Start Command**: `npm start`
-5. Add environment variables:
-   - `NODE_ENV` = `production`
-   - `JWT_SECRET` = (your secret key)
-6. Click "Create Web Service"
+**See `DEPLOY_FREE.md` for detailed instructions on all free options.**
 
 ## Generate Secure JWT Secret
 
