@@ -852,10 +852,11 @@ app.post('/api/admin/users/:id/products', authenticateToken, requireAdmin, (req,
           stmt.run([id, productId], (err) => {
             if (err && !hasError) {
               hasError = true;
+              stmt.finalize();
               return res.status(500).json({ error: 'Error assigning products' });
             }
             completed++;
-            if (completed === finalProductIds.length && !hasError) {
+            if (completed === productIds.length && !hasError) {
               stmt.finalize();
               res.json({ message: 'Products assigned successfully' });
             }
