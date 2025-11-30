@@ -63,6 +63,27 @@ const AdminDashboard = () => {
   const [assigningUser, setAssigningUser] = useState(null);
   const [allProducts, setAllProducts] = useState([]);
   const [userProducts, setUserProducts] = useState([]);
+  const [currentDomainProductId, setCurrentDomainProductId] = useState(null);
+
+  // Detect current domain and get product ID
+  useEffect(() => {
+    const detectDomainProduct = async () => {
+      try {
+        const currentDomain = window.location.host; // e.g., "localhost:3000"
+        const response = await axios.get(`${API_URL}/products/by-domain?domain=${encodeURIComponent(currentDomain)}`);
+        if (response.data && response.data.productId) {
+          setCurrentDomainProductId(response.data.productId);
+        }
+      } catch (error) {
+        // Domain not found or not authenticated - that's okay, continue
+        console.log('No product found for current domain or not authenticated');
+      }
+    };
+
+    if (user) {
+      detectDomainProduct();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (isAdmin() || user?.role === 'user') {
@@ -74,7 +95,7 @@ const AdminDashboard = () => {
       }
       fetchProducts();
     }
-  }, [isAdmin, user]);
+  }, [isAdmin, user, currentDomainProductId]);
 
   const showError = (msg) => {
     message.error(msg);
@@ -87,7 +108,17 @@ const AdminDashboard = () => {
   const fetchUsers = async () => {
     try {
       const response = await axios.get(`${API_URL}/admin/users`);
-      setUsers(response.data.users);
+      let usersData = response.data.users || [];
+      
+      // If not super admin and we have a current domain product, filter users to only those with this product
+      if (!isSuperAdmin() && currentDomainProductId) {
+        usersData = usersData.filter(user => {
+          // Check if user has the current domain's product
+          return user.products && user.products.some(p => p.id === currentDomainProductId);
+        });
+      }
+      
+      setUsers(usersData);
     } catch (error) {
       showError('Failed to fetch users');
     }
@@ -96,7 +127,13 @@ const AdminDashboard = () => {
   const fetchProducts = async () => {
     try {
       const response = await axios.get(`${API_URL}/products`);
-      const productsData = response.data.products || [];
+      let productsData = response.data.products || [];
+      
+      // If not super admin and we have a current domain product, filter to only that product
+      if (!isSuperAdmin() && currentDomainProductId) {
+        productsData = productsData.filter(p => p.id === currentDomainProductId);
+      }
+      
       setProducts(productsData);
       // Store user's products for use in dropdowns (for regular admins)
       if (!isSuperAdmin()) {
@@ -126,7 +163,12 @@ const AdminDashboard = () => {
     if (isSuperAdmin()) {
       return allProducts;
     }
-    return userProducts.length > 0 ? userProducts : products;
+    // For regular admin, if we have a current domain product, only show that product
+    let available = userProducts.length > 0 ? userProducts : products;
+    if (currentDomainProductId) {
+      available = available.filter(p => p.id === currentDomainProductId);
+    }
+    return available;
   };
 
   // Check if current admin has only one product
