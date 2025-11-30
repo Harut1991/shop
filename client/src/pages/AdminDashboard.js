@@ -205,9 +205,16 @@ const AdminDashboard = () => {
   const handleProductSubmit = async (values) => {
     setLoading(true);
     const trimmedTitle = values.title.trim();
+    const trimmedDomain = values.domain?.trim() || '';
     
     if (!trimmedTitle) {
       showError('Product title is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!trimmedDomain) {
+      showError('Domain is required');
       setLoading(false);
       return;
     }
@@ -223,13 +230,25 @@ const AdminDashboard = () => {
       return;
     }
 
+    const duplicateDomain = products.find(
+      p => p.domain && p.domain.toLowerCase() === trimmedDomain.toLowerCase() && 
+      (!editingProduct || p.id !== editingProduct.id)
+    );
+
+    if (duplicateDomain) {
+      showError('A product with this domain already exists');
+      setLoading(false);
+      return;
+    }
+
     try {
       const productData = {
         name: trimmedTitle,
         description: values.description || '',
         price: 0,
         stock: 0,
-        image_url: ''
+        image_url: '',
+        domain: trimmedDomain
       };
       
       if (editingProduct) {
@@ -264,7 +283,8 @@ const AdminDashboard = () => {
     setEditingProduct(product);
     productForm.setFieldsValue({
       title: product.name || product.title || '',
-      description: product.description || ''
+      description: product.description || '',
+      domain: product.domain || ''
     });
     setShowProductModal(true);
   };
@@ -467,6 +487,12 @@ const AdminDashboard = () => {
       title: 'Name',
       dataIndex: 'name',
       key: 'name'
+    },
+    {
+      title: 'Domain',
+      dataIndex: 'domain',
+      key: 'domain',
+      render: (domain) => domain || '-'
     },
     {
       title: 'Description',
@@ -747,6 +773,14 @@ const AdminDashboard = () => {
               tooltip="Optional product description"
             >
               <TextArea rows={3} placeholder="Enter product description" />
+            </Form.Item>
+            <Form.Item
+              name="domain"
+              label="Domain"
+              rules={[{ required: true, message: 'Domain is required' }]}
+              tooltip="Domain from where this product can be accessed (e.g., localhost:3000)"
+            >
+              <Input placeholder="Enter domain (e.g., localhost:3000)" />
             </Form.Item>
             <Form.Item>
               <Space>

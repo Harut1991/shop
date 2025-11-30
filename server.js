@@ -944,13 +944,18 @@ app.get('/api/products', authenticateToken, (req, res) => {
 });
 
 app.post('/api/products', authenticateToken, requireSuperAdmin, (req, res) => {
-  const { name, description, price, stock, image_url } = req.body;
+  const { name, description, price, stock, image_url, domain } = req.body;
 
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Product title is required' });
   }
 
+  if (!domain || !domain.trim()) {
+    return res.status(400).json({ error: 'Domain is required' });
+  }
+
   const trimmedName = name.trim();
+  const trimmedDomain = domain.trim();
 
   // Check for duplicate product names
   db.get('SELECT id FROM products WHERE LOWER(name) = LOWER(?)', [trimmedName], (err, existing) => {
@@ -961,17 +966,27 @@ app.post('/api/products', authenticateToken, requireSuperAdmin, (req, res) => {
       return res.status(400).json({ error: 'A product with this name already exists' });
     }
 
-    db.run(
-      'INSERT INTO products (name, description, price, stock, image_url) VALUES (?, ?, ?, ?, ?)',
-      [trimmedName, description || '', price || 0, stock || 0, image_url || ''],
-      function(err) {
-        if (err) {
-          return res.status(500).json({ error: 'Error creating product' });
-        }
-        const productId = this.lastID;
-        res.status(201).json({ message: 'Product created', id: productId });
+    // Check for duplicate domains
+    db.get('SELECT id FROM products WHERE LOWER(domain) = LOWER(?)', [trimmedDomain], (err, existingDomain) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking for duplicate domain' });
       }
-    );
+      if (existingDomain) {
+        return res.status(400).json({ error: 'A product with this domain already exists' });
+      }
+
+      db.run(
+        'INSERT INTO products (name, description, price, stock, image_url, domain) VALUES (?, ?, ?, ?, ?, ?)',
+        [trimmedName, description || '', price || 0, stock || 0, image_url || '', trimmedDomain],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Error creating product' });
+          }
+          const productId = this.lastID;
+          res.status(201).json({ message: 'Product created', id: productId });
+        }
+      );
+    });
   });
 });
 
@@ -1010,6 +1025,14 @@ app.put('/api/products/:id', authenticateToken, requireSuperAdmin, (req, res) =>
     }
 
     function updateProduct() {
+      const { domain } = req.body;
+      
+      if (!domain || !domain.trim()) {
+        return res.status(400).json({ error: 'Domain is required' });
+      }
+
+      const trimmedDomain = domain.trim();
+
       // Check for duplicate product names (excluding current product)
       db.get('SELECT id FROM products WHERE LOWER(name) = LOWER(?) AND id != ?', [trimmedName, id], (err, existing) => {
         if (err) {
@@ -1019,19 +1042,29 @@ app.put('/api/products/:id', authenticateToken, requireSuperAdmin, (req, res) =>
           return res.status(400).json({ error: 'A product with this name already exists' });
         }
 
-        db.run(
-          'UPDATE products SET name = ?, description = ?, price = ?, stock = ?, image_url = ? WHERE id = ?',
-          [trimmedName, description || '', price || 0, stock || 0, image_url || '', id],
-          function(err) {
-            if (err) {
-              return res.status(500).json({ error: 'Error updating product' });
-            }
-            if (this.changes === 0) {
-              return res.status(404).json({ error: 'Product not found' });
-            }
-            res.json({ message: 'Product updated successfully' });
+        // Check for duplicate domains (excluding current product)
+        db.get('SELECT id FROM products WHERE LOWER(domain) = LOWER(?) AND id != ?', [trimmedDomain, id], (err, existingDomain) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error checking for duplicate domain' });
           }
-        );
+          if (existingDomain) {
+            return res.status(400).json({ error: 'A product with this domain already exists' });
+          }
+
+          db.run(
+            'UPDATE products SET name = ?, description = ?, price = ?, stock = ?, image_url = ?, domain = ? WHERE id = ?',
+            [trimmedName, description || '', price || 0, stock || 0, image_url || '', trimmedDomain, id],
+            function(err) {
+              if (err) {
+                return res.status(500).json({ error: 'Error updating product' });
+              }
+              if (this.changes === 0) {
+                return res.status(404).json({ error: 'Product not found' });
+              }
+              res.json({ message: 'Product updated successfully' });
+            }
+          );
+        });
       });
     }
   });
@@ -1071,6 +1104,27 @@ app.delete('/api/products/:id', authenticateToken, requireSuperAdmin, (req, res)
       });
     });
   }
+});
+
+// Public endpoint to get product ID by domain
+app.get('/api/products/by-domain', (req, res) => {
+  const { domain } = req.query;
+
+  if (!domain || !domain.trim()) {
+    return res.status(400).json({ error: 'Domain parameter is required' });
+  }
+
+  const trimmedDomain = domain.trim();
+
+  db.get('SELECT id FROM products WHERE LOWER(domain) = LOWER(?)', [trimmedDomain], (err, product) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching product' });
+    }
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found for this domain' });
+    }
+    res.json({ productId: product.id });
+  });
 });
 
 // Root route - helpful message in development
