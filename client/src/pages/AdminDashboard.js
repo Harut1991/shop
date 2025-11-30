@@ -759,7 +759,7 @@ const AdminDashboard = () => {
             margin: 0, 
             cursor: 'pointer'
           }}
-          onClick={() => navigate('/admin')}
+          onClick={() => navigate('/')}
         >
           Shop Admin Panel
         </Title>
