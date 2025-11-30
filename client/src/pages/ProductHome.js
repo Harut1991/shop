@@ -78,13 +78,18 @@ const ProductHome = () => {
         </Paragraph>
 
         {error ? (
-          <Alert
-            message="Error"
-            description={error}
-            type="error"
-            showIcon
-            style={{ marginTop: '16px' }}
-          />
+          <div>
+            <Alert
+              message="Error"
+              description={error}
+              type="error"
+              showIcon
+              style={{ marginTop: '16px' }}
+            />
+            <Paragraph style={{ marginTop: '16px', textAlign: 'center', fontSize: '12px', color: '#666' }}>
+              <strong>Debug tip:</strong> Visit <a href="/api/products/debug-domains" target="_blank">/api/products/debug-domains</a> to see all products and their domains
+            </Paragraph>
+          </div>
         ) : productId ? (
           <Alert
             message="Product Found"

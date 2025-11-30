@@ -1157,6 +1157,25 @@ app.delete('/api/products/:id', authenticateToken, requireSuperAdmin, (req, res)
   }
 });
 
+// Debug endpoint to list all products with domains (for troubleshooting)
+app.get('/api/products/debug-domains', (req, res) => {
+  db.all('SELECT id, name, domain FROM products', (err, products) => {
+    if (err) {
+      if (err.message && err.message.includes('no such column: domain')) {
+        return res.status(500).json({ 
+          error: 'Domain column does not exist. Please run: npm run migrate',
+          products: products || []
+        });
+      }
+      return res.status(500).json({ error: 'Error fetching products: ' + err.message });
+    }
+    res.json({ 
+      products: products || [],
+      message: 'List of all products with their domains'
+    });
+  });
+});
+
 // Public endpoint to get product ID by domain
 app.get('/api/products/by-domain', (req, res) => {
   const { domain } = req.query;
@@ -1166,9 +1185,10 @@ app.get('/api/products/by-domain', (req, res) => {
   }
 
   const trimmedDomain = domain.trim();
+  console.log('Searching for domain:', trimmedDomain);
 
   // Query for product with matching domain
-  db.get('SELECT id FROM products WHERE LOWER(domain) = LOWER(?)', [trimmedDomain], (err, product) => {
+  db.get('SELECT id FROM products WHERE LOWER(TRIM(domain)) = LOWER(?)', [trimmedDomain], (err, product) => {
     if (err) {
       console.error('Database error:', err);
       // Check if domain column exists
@@ -1180,22 +1200,34 @@ app.get('/api/products/by-domain', (req, res) => {
       return res.status(500).json({ error: 'Error fetching product: ' + err.message });
     }
     if (!product) {
-      // Debug: Get all products with domains to help troubleshoot
-      db.all('SELECT id, name, domain FROM products WHERE domain IS NOT NULL AND domain != ""', (err, allProducts) => {
-        if (!err) {
-          console.log('Available products with domains:', allProducts);
-          console.log('Searching for domain:', trimmedDomain);
-          if (allProducts && allProducts.length > 0) {
-            console.log('Found products:', allProducts.map(p => `ID: ${p.id}, Name: ${p.name}, Domain: "${p.domain}"`));
-          } else {
-            console.log('No products found with domain set');
+      // Debug: Get all products to help troubleshoot
+      db.all('SELECT id, name, domain FROM products', (err, allProducts) => {
+        if (!err && allProducts) {
+          console.log('All products in database:');
+          allProducts.forEach(p => {
+            console.log(`  ID: ${p.id}, Name: "${p.name}", Domain: "${p.domain || '(NULL or empty)'}"`);
+          });
+          console.log(`Searching for: "${trimmedDomain}"`);
+          
+          // Check for close matches
+          const closeMatches = allProducts.filter(p => {
+            if (!p.domain) return false;
+            const storedDomain = p.domain.trim().toLowerCase();
+            const searchDomain = trimmedDomain.toLowerCase();
+            return storedDomain.includes(searchDomain) || searchDomain.includes(storedDomain);
+          });
+          
+          if (closeMatches.length > 0) {
+            console.log('Close matches found:', closeMatches.map(p => `ID: ${p.id}, Domain: "${p.domain}"`));
           }
         }
       });
       return res.status(404).json({ 
-        error: `Product not found for domain "${trimmedDomain}". Check that the product has the domain field set correctly.` 
+        error: `Product not found for domain "${trimmedDomain}". Check that the product has the domain field set correctly.`,
+        hint: 'Visit /api/products/debug-domains to see all products and their domains'
       });
     }
+    console.log('Product found:', product.id);
     res.json({ productId: product.id });
   });
 });
