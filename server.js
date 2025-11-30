@@ -1167,14 +1167,37 @@ app.get('/api/products/by-domain', (req, res) => {
 
   const trimmedDomain = domain.trim();
 
-  db.get('SELECT id FROM products WHERE LOWER(domain) = LOWER(?)', [trimmedDomain], (err, product) => {
+  // First check if domain column exists, if not, return helpful error
+  db.get('SELECT id, domain FROM products WHERE domain IS NOT NULL LIMIT 1', (err, testProduct) => {
     if (err) {
-      return res.status(500).json({ error: 'Error fetching product' });
+      // Try the query anyway - might be column doesn't exist
+      console.log('Note: Checking for domain column...');
     }
-    if (!product) {
-      return res.status(404).json({ error: 'Product not found for this domain' });
-    }
-    res.json({ productId: product.id });
+
+    // Query for product with matching domain
+    db.get('SELECT id FROM products WHERE LOWER(domain) = LOWER(?)', [trimmedDomain], (err, product) => {
+      if (err) {
+        console.error('Database error:', err);
+        // Check if domain column exists
+        if (err.message && err.message.includes('no such column: domain')) {
+          return res.status(500).json({ 
+            error: 'Domain column does not exist. Please run database migrations.' 
+          });
+        }
+        return res.status(500).json({ error: 'Error fetching product' });
+      }
+      if (!product) {
+        // Debug: Get all products with domains to help troubleshoot
+        db.all('SELECT id, name, domain FROM products WHERE domain IS NOT NULL', (err, allProducts) => {
+          if (!err && allProducts && allProducts.length > 0) {
+            console.log('Available products with domains:', allProducts);
+            console.log('Searching for domain:', trimmedDomain);
+          }
+        });
+        return res.status(404).json({ error: 'Product not found for this domain' });
+      }
+      res.json({ productId: product.id });
+    });
   });
 });
 

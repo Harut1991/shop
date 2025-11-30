@@ -28,10 +28,11 @@ const ProductHome = () => {
         }
       } catch (err) {
         if (err.response?.status === 404) {
-          setError('No product found for this domain');
+          setError('No product found for this domain. Please check that the product domain matches exactly.');
         } else {
           setError(err.response?.data?.error || 'Failed to fetch product information');
         }
+        console.error('Error fetching product:', err.response?.data || err.message);
       } finally {
         setLoading(false);
       }
