@@ -1,40 +1,18 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Card, Typography, Spin } from 'antd';
-
-const { Title, Paragraph } = Typography;
+import AdminDashboard from './AdminDashboard';
+import Login from './Login';
 
 const Landing = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
 
-  useEffect(() => {
-    // If user is logged in, redirect to admin
-    if (user) {
-      navigate('/admin', { replace: true });
-    } else {
-      // If not logged in, redirect to login
-      navigate('/login', { replace: true });
-    }
-  }, [user, navigate]);
-
-  return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      minHeight: '100vh',
-      padding: '20px'
-    }}>
-      <Card>
-        <Spin size="large" />
-        <Title level={4} style={{ marginTop: '20px', textAlign: 'center' }}>
-          Loading...
-        </Title>
-      </Card>
-    </div>
-  );
+  // Show admin dashboard if logged in, otherwise show login
+  // This allows each product domain to have its own admin at the root
+  if (user) {
+    return <AdminDashboard />;
+  }
+  
+  return <Login />;
 };
 
 export default Landing;

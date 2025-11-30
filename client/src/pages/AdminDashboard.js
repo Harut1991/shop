@@ -552,7 +552,7 @@ const AdminDashboard = () => {
               type="default"
               size="small"
               icon={<EyeOutlined />}
-              onClick={() => window.open(`/product/${record.id}`, '_blank')}
+              onClick={() => window.open(`/admin/product/${record.id}`, '_blank')}
             >
               View
             </Button>

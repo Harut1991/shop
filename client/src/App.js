@@ -15,7 +15,7 @@ function App() {
         <div className="App">
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/admin/login" element={<Login />} />
             <Route
               path="/admin"
               element={
@@ -25,7 +25,7 @@ function App() {
               }
             />
             <Route
-              path="/product/:id"
+              path="/admin/product/:id"
               element={
                 <ProtectedRoute>
                   <ProductDetail />

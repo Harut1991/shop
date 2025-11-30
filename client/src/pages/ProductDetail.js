@@ -32,11 +32,11 @@ const ProductDetail = () => {
         setProduct(foundProduct);
       } else {
         message.error('Product not found');
-        navigate('/admin');
+        navigate('/');
       }
     } catch (error) {
       message.error('Failed to fetch product');
-      navigate('/admin');
+      navigate('/');
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ const ProductDetail = () => {
           <Title 
             level={3} 
             style={{ color: 'white', margin: 0, cursor: 'pointer' }}
-            onClick={() => navigate('/admin')}
+            onClick={() => navigate('/')}
           >
             Shop Admin Panel
           </Title>
