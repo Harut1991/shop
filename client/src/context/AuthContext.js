@@ -41,9 +41,13 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
+      // Get current domain from window.location
+      const domain = window.location.host; // e.g., "localhost:3000"
+      
       const response = await axios.post(`${API_URL}/auth/login`, {
         username,
         password,
+        domain,
       });
       const { token, user } = response.data;
       localStorage.setItem('token', token);

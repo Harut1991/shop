@@ -200,11 +200,17 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.post('/api/auth/login', (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, domain } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
   }
+
+  if (!domain || !domain.trim()) {
+    return res.status(400).json({ error: 'Domain is required' });
+  }
+
+  const trimmedDomain = domain.trim();
 
   db.get(
     'SELECT * FROM users WHERE username = ? OR email = ?',
@@ -221,20 +227,65 @@ app.post('/api/auth/login', (req, res) => {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      const token = jwt.sign(
-        { id: user.id, username: user.username, email: user.email, role: user.role },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+      // Super admin can login from any domain
+      if (user.role === 'super_admin') {
+        const token = jwt.sign(
+          { id: user.id, username: user.username, email: user.email, role: user.role },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
 
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role
+        return res.json({
+          token,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role
+          }
+        });
+      }
+
+      // For non-super-admin users, check if they have access to a product with this domain
+      // First, get the product ID for this domain
+      db.get('SELECT id FROM products WHERE LOWER(domain) = LOWER(?)', [trimmedDomain], (err, product) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error checking domain' });
         }
+        if (!product) {
+          return res.status(403).json({ error: 'No product found for this domain' });
+        }
+
+        // Check if user has access to this product
+        db.get(
+          'SELECT * FROM user_products WHERE user_id = ? AND product_id = ?',
+          [user.id, product.id],
+          (err, userProduct) => {
+            if (err) {
+              return res.status(500).json({ error: 'Error checking product access' });
+            }
+            if (!userProduct) {
+              return res.status(403).json({ error: 'You do not have access to this domain' });
+            }
+
+            // User has access, create token
+            const token = jwt.sign(
+              { id: user.id, username: user.username, email: user.email, role: user.role },
+              JWT_SECRET,
+              { expiresIn: '24h' }
+            );
+
+            res.json({
+              token,
+              user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role
+              }
+            });
+          }
+        );
       });
     }
   );
