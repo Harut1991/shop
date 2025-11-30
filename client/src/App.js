@@ -4,7 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import ProductDetail from './pages/ProductDetail';
-import Landing from './pages/Landing';
+import ProductHome from './pages/ProductHome';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -14,7 +14,7 @@ function App() {
       <Router>
         <div className="App">
           <Routes>
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={<ProductHome />} />
             <Route path="/admin/login" element={<Login />} />
             <Route
               path="/admin"
