@@ -14,21 +14,25 @@
     "start:prod": "cross-env NODE_ENV=production node server.js",
     "migrate": "node migrations/migrate.js"
   },
-  "keywords": ["shop", "admin", "ecommerce"],
+  "keywords": [
+    "shop",
+    "admin",
+    "ecommerce"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "sqlite3": "^5.1.6",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
     "cors": "^2.8.5",
+    "cross-env": "^7.0.3",
     "dotenv": "^16.3.1",
-    "cross-env": "^7.0.3"
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.1"
   }
 }
-

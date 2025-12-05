@@ -86,9 +86,28 @@ const ProductHome = () => {
               showIcon
               style={{ marginTop: '16px' }}
             />
-            <Paragraph style={{ marginTop: '16px', textAlign: 'center', fontSize: '12px', color: '#666' }}>
-              <strong>Debug tip:</strong> Visit <a href="/api/products/debug-domains" target="_blank">/api/products/debug-domains</a> to see all products and their domains
-            </Paragraph>
+            <Alert
+              message="How to Fix"
+              description={
+                <div>
+                  <p style={{ marginBottom: '8px' }}>To set the domain for your product:</p>
+                  <ol style={{ marginLeft: '20px', marginBottom: '8px' }}>
+                    <li>Go to <a href="/admin/login" target="_blank">Admin Login</a></li>
+                    <li>Log in as super admin</li>
+                    <li>Go to "Products Management" tab</li>
+                    <li>Click "Edit" on your product</li>
+                    <li>Set the <strong>Domain</strong> field to: <code>{domain}</code></li>
+                    <li>Click "Update" to save</li>
+                  </ol>
+                  <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                    <strong>Debug:</strong> <a href="/api/products/debug-domains" target="_blank">View all products and domains</a>
+                  </p>
+                </div>
+              }
+              type="info"
+              showIcon
+              style={{ marginTop: '16px' }}
+            />
           </div>
         ) : productId ? (
           <Alert

@@ -57,6 +57,7 @@ const AdminDashboard = () => {
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [productForm] = Form.useForm();
+  const [templates, setTemplates] = useState([]);
 
   // User product assignment states
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -91,11 +92,21 @@ const AdminDashboard = () => {
         fetchUsers();
         if (isSuperAdmin()) {
           fetchAllProducts();
+          fetchTemplates();
         }
       }
       fetchProducts();
     }
   }, [isAdmin, user, currentDomainProductId]);
+
+  const fetchTemplates = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/category-templates`);
+      setTemplates(response.data.templates || []);
+    } catch (error) {
+      console.error('Failed to fetch templates:', error);
+    }
+  };
 
   const showError = (msg) => {
     message.error(msg);
@@ -290,7 +301,8 @@ const AdminDashboard = () => {
         price: 0,
         stock: 0,
         image_url: '',
-        domain: trimmedDomain
+        domain: trimmedDomain,
+        templateId: values.templateId || null
       };
       
       if (editingProduct) {
@@ -824,6 +836,21 @@ const AdminDashboard = () => {
             >
               <Input placeholder="Enter domain (e.g., localhost:3000)" />
             </Form.Item>
+            {!editingProduct && isSuperAdmin() && (
+              <Form.Item
+                name="templateId"
+                label="Category Template (Optional)"
+                tooltip="Select a template to automatically assign categories to this product"
+              >
+                <Select placeholder="Select a template (optional)" allowClear>
+                  {templates.map(template => (
+                    <Option key={template.id} value={template.id}>
+                      {template.name} {template.description && `- ${template.description}`}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            )}
             <Form.Item>
               <Space>
                 <Button onClick={() => {
