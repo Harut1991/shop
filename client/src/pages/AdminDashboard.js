@@ -34,7 +34,7 @@ const { Header, Content } = Layout;
 const { Title } = Typography;
 const { TextArea } = Input;
 
-const API_URL = '/api';
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 const AdminDashboard = () => {
   const { user, logout, isAdmin, isSuperAdmin } = useAuth();
@@ -71,7 +71,12 @@ const AdminDashboard = () => {
     const detectDomainProduct = async () => {
       try {
         const currentDomain = window.location.host; // e.g., "localhost:3000"
-        const response = await axios.get(`${API_URL}/products/by-domain?domain=${encodeURIComponent(currentDomain)}`);
+        // Use categories endpoint to detect product (it validates domain automatically)
+        const response = await axios.get(`${API_URL}/public/categories`, {
+          headers: {
+            'X-Client-Domain': currentDomain
+          }
+        });
         if (response.data && response.data.productId) {
           setCurrentDomainProductId(response.data.productId);
         }
@@ -419,7 +424,11 @@ const AdminDashboard = () => {
     return <Tag color={colors[role]}>{role}</Tag>;
   };
 
-  // Table column definitions
+  // Separate users and customers
+  const regularUsers = users.filter(u => u.role !== 'customer');
+  const customers = users.filter(u => u.role === 'customer');
+
+  // Table column definitions for regular users (admin, user, super_admin)
   const userColumns = [
     {
       title: 'ID',
@@ -529,6 +538,80 @@ const AdminDashboard = () => {
       )
     });
   }
+
+  // Table column definitions for customers (only delete action)
+  const customerColumns = [
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: 80
+    },
+    {
+      title: 'First Name',
+      dataIndex: 'first_name',
+      key: 'first_name',
+      render: (name) => name || '-'
+    },
+    {
+      title: 'Last Name',
+      dataIndex: 'last_name',
+      key: 'last_name',
+      render: (name) => name || '-'
+    },
+    {
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email'
+    },
+    {
+      title: 'Phone',
+      dataIndex: 'phone',
+      key: 'phone',
+      render: (phone) => phone || '-'
+    },
+    {
+      title: 'Products',
+      key: 'products',
+      render: (_, record) => {
+        const products = record.products || [];
+        if (products.length === 0) {
+          return <Tag color="red">No products</Tag>;
+        }
+        return (
+          <Space wrap>
+            {products.map((product) => (
+              <Tag key={product.id} color="blue">
+                {product.name}
+              </Tag>
+            ))}
+          </Space>
+        );
+      }
+    },
+    {
+      title: 'Created At',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (date) => new Date(date).toLocaleDateString()
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Popconfirm
+          title="Are you sure you want to delete this customer?"
+          onConfirm={() => handleDeleteUser(record.id)}
+          okText="Yes"
+          cancelText="No"
+        >
+          <Button type="primary" danger size="small" icon={<DeleteOutlined />}>
+            Delete
+          </Button>
+        </Popconfirm>
+      )
+    }
+  ];
 
   const productColumns = [
     {
@@ -653,39 +736,64 @@ const AdminDashboard = () => {
           </span>
         ),
         children: (
-        <Card
-          title="Users"
-          extra={
-            isAdmin() && (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  createUserForm.resetFields();
-                  // If admin has only one product, auto-set it
-                  if (hasOnlyOneProduct()) {
-                    const singleProductId = getSingleProductId();
-                    createUserForm.setFieldsValue({ 
-                      role: 'user',
-                      productIds: singleProductId ? [singleProductId] : []
-                    });
-                  }
-                  setShowCreateUserModal(true);
-                }}
-              >
-                Create User
-              </Button>
-            )
-          }
-        >
-          <Table
-            dataSource={users}
-            columns={userColumns}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
+          <Tabs
+            defaultActiveKey="users"
+            items={[
+              {
+                key: 'users',
+                label: 'Users',
+                children: (
+                  <Card
+                    title="Users"
+                    extra={
+                      isAdmin() && (
+                        <Button
+                          type="primary"
+                          icon={<PlusOutlined />}
+                          onClick={() => {
+                            createUserForm.resetFields();
+                            // If admin has only one product, auto-set it
+                            if (hasOnlyOneProduct()) {
+                              const singleProductId = getSingleProductId();
+                              createUserForm.setFieldsValue({ 
+                                role: 'user',
+                                productIds: singleProductId ? [singleProductId] : []
+                              });
+                            }
+                            setShowCreateUserModal(true);
+                          }}
+                        >
+                          Create User
+                        </Button>
+                      )
+                    }
+                  >
+                    <Table
+                      dataSource={regularUsers}
+                      columns={userColumns}
+                      rowKey="id"
+                      pagination={{ pageSize: 10 }}
+                    />
+                  </Card>
+                )
+              },
+              {
+                key: 'customers',
+                label: 'Customers',
+                children: (
+                  <Card title="Customers">
+                    <Table
+                      dataSource={customers}
+                      columns={customerColumns}
+                      rowKey="id"
+                      pagination={{ pageSize: 10 }}
+                    />
+                  </Card>
+                )
+              }
+            ]}
           />
-        </Card>
-      )
+        )
       });
     }
     

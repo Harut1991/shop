@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Card, Typography, Spin, Alert } from 'antd';
+import { Layout, Card, Typography, Spin, Alert } from 'antd';
+import Header from '../components/Header';
+import { AuthProvider } from '../context/AuthContext';
 
 const { Title, Paragraph } = Typography;
-const API_URL = '/api';
+const { Content } = Layout;
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 const ProductHome = () => {
   const [productId, setProductId] = useState(null);
@@ -19,7 +22,12 @@ const ProductHome = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await axios.get(`${API_URL}/products/by-domain?domain=${encodeURIComponent(currentDomain)}`);
+        // Use categories endpoint to detect product (it validates domain automatically)
+        const response = await axios.get(`${API_URL}/public/categories`, {
+          headers: {
+            'X-Client-Domain': currentDomain
+          }
+        });
         
         if (response.data && response.data.productId) {
           setProductId(response.data.productId);
@@ -61,65 +69,72 @@ const ProductHome = () => {
   }
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      minHeight: '100vh',
-      padding: '20px'
-    }}>
-      <Card style={{ maxWidth: '600px', width: '100%' }}>
-        <Title level={2} style={{ textAlign: 'center', marginBottom: '24px' }}>
-          Product Information
-        </Title>
-        
-        <Paragraph style={{ textAlign: 'center', marginBottom: '16px' }}>
-          <strong>Domain:</strong> {domain}
-        </Paragraph>
+    <AuthProvider>
+      <Layout style={{ minHeight: '100vh' }}>
+        <Header productId={productId} />
+        <Content style={{ padding: '24px', background: '#f0f2f5' }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            minHeight: 'calc(100vh - 112px)',
+            padding: '20px'
+          }}>
+            <Card style={{ maxWidth: '600px', width: '100%' }}>
+              <Title level={2} style={{ textAlign: 'center', marginBottom: '24px' }}>
+                Welcome to Our Shop
+              </Title>
+              
+              <Paragraph style={{ textAlign: 'center', marginBottom: '16px' }}>
+                <strong>Domain:</strong> {domain}
+              </Paragraph>
 
-        {error ? (
-          <div>
-            <Alert
-              message="Error"
-              description={error}
-              type="error"
-              showIcon
-              style={{ marginTop: '16px' }}
-            />
-            <Alert
-              message="How to Fix"
-              description={
+              {error ? (
                 <div>
-                  <p style={{ marginBottom: '8px' }}>To set the domain for your product:</p>
-                  <ol style={{ marginLeft: '20px', marginBottom: '8px' }}>
-                    <li>Go to <a href="/admin/login" target="_blank">Admin Login</a></li>
-                    <li>Log in as super admin</li>
-                    <li>Go to "Products Management" tab</li>
-                    <li>Click "Edit" on your product</li>
-                    <li>Set the <strong>Domain</strong> field to: <code>{domain}</code></li>
-                    <li>Click "Update" to save</li>
-                  </ol>
-                  <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-                    <strong>Debug:</strong> <a href="/api/products/debug-domains" target="_blank">View all products and domains</a>
-                  </p>
+                  <Alert
+                    message="Error"
+                    description={error}
+                    type="error"
+                    showIcon
+                    style={{ marginTop: '16px' }}
+                  />
+                  <Alert
+                    message="How to Fix"
+                    description={
+                      <div>
+                        <p style={{ marginBottom: '8px' }}>To set the domain for your product:</p>
+                        <ol style={{ marginLeft: '20px', marginBottom: '8px' }}>
+                          <li>Go to <a href="/admin/login" target="_blank">Admin Login</a></li>
+                          <li>Log in as super admin</li>
+                          <li>Go to "Products Management" tab</li>
+                          <li>Click "Edit" on your product</li>
+                          <li>Set the <strong>Domain</strong> field to: <code>{domain}</code></li>
+                          <li>Click "Update" to save</li>
+                        </ol>
+                        <p style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                          <strong>Debug:</strong> <a href="/api/products/debug-domains" target="_blank">View all products and domains</a>
+                        </p>
+                      </div>
+                    }
+                    type="info"
+                    showIcon
+                    style={{ marginTop: '16px' }}
+                  />
                 </div>
-              }
-              type="info"
-              showIcon
-              style={{ marginTop: '16px' }}
-            />
+              ) : productId ? (
+                <Alert
+                  message="Product Found"
+                  description={`Product ID: ${productId}`}
+                  type="success"
+                  showIcon
+                  style={{ marginTop: '16px' }}
+                />
+              ) : null}
+            </Card>
           </div>
-        ) : productId ? (
-          <Alert
-            message="Product Found"
-            description={`Product ID: ${productId}`}
-            type="success"
-            showIcon
-            style={{ marginTop: '16px' }}
-          />
-        ) : null}
-      </Card>
-    </div>
+        </Content>
+      </Layout>
+    </AuthProvider>
   );
 };
 

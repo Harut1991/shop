@@ -38,11 +38,12 @@ import {
   UploadOutlined
 } from '@ant-design/icons';
 import './ProductDetail.css';
+import { getImageUrl, openImageInNewTab } from '../utils/imageUtils';
 
 const { Title } = Typography;
 const { Header, Content } = Layout;
 const { Option } = Select;
-const API_URL = '/api';
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -889,8 +890,11 @@ const ProductDetail = () => {
                 {product.image_url && (
                   <Descriptions.Item label="Image">
                     <img 
-                      src={product.image_url} 
-                      alt={product.name} 
+                      src={getImageUrl(product.image_url)} 
+                      alt={product.name}
+                      onClick={() => openImageInNewTab(product.image_url)}
+                      style={{ cursor: 'pointer' }}
+                      title="Click to open image" 
                       style={{ maxWidth: '300px', maxHeight: '300px' }}
                     />
                   </Descriptions.Item>
@@ -1057,9 +1061,11 @@ const ProductDetail = () => {
                                         <MenuOutlined style={{ color: '#bfbfbf', fontSize: '12px' }} />
                                         {sub.image_url && (
                                           <img 
-                                            src={sub.image_url} 
+                                            src={getImageUrl(sub.image_url)} 
                                             alt={sub.name}
-                                            style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px' }}
+                                            onClick={() => openImageInNewTab(sub.image_url)}
+                                            style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }}
+                                            title="Click to open image"
                                           />
                                         )}
                                         <span style={{ fontSize: '13px', fontWeight: isChecked ? '500' : 'normal' }}>{sub.name}</span>
@@ -1212,8 +1218,18 @@ const ProductDetail = () => {
                         >
                           {subCategoryImagePreview || subCategoryForm.getFieldValue('image_url') ? (
                             <img 
-                              src={subCategoryImagePreview || subCategoryForm.getFieldValue('image_url')} 
-                              alt="preview" 
+                              src={(subCategoryImagePreview && subCategoryImagePreview.startsWith('data:')) 
+                                ? subCategoryImagePreview 
+                                : getImageUrl(subCategoryImagePreview || subCategoryForm.getFieldValue('image_url'))} 
+                              alt="preview"
+                              onClick={() => {
+                                const url = subCategoryImagePreview || subCategoryForm.getFieldValue('image_url');
+                                if (url && !url.startsWith('data:')) {
+                                  openImageInNewTab(url);
+                                }
+                              }}
+                              style={{ cursor: (subCategoryImagePreview && subCategoryImagePreview.startsWith('data:')) ? 'default' : 'pointer' }}
+                              title={(subCategoryImagePreview && subCategoryImagePreview.startsWith('data:')) ? '' : "Click to open image"} 
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                           ) : (
@@ -1462,9 +1478,11 @@ const ProductDetail = () => {
                               <MenuOutlined style={{ color: '#8c8c8c', fontSize: '14px' }} />
                               {item.image_url && (
                                 <img 
-                                  src={item.image_url} 
+                                  src={getImageUrl(item.image_url)} 
                                   alt={item.weight}
-                                  style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
+                                  onClick={() => openImageInNewTab(item.image_url)}
+                                  style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }}
+                                  title="Click to open image"
                                 />
                               )}
                               <div>
@@ -1616,15 +1634,21 @@ const ProductDetail = () => {
                           </Upload>
                           {productItemImagePreview && (
                             <img 
-                              src={productItemImagePreview} 
-                              alt="Preview" 
+                              src={productItemImagePreview.startsWith('data:') ? productItemImagePreview : getImageUrl(productItemImagePreview)} 
+                              alt="Preview"
+                              onClick={() => !productItemImagePreview.startsWith('data:') && openImageInNewTab(productItemImagePreview)}
+                              style={{ cursor: productItemImagePreview.startsWith('data:') ? 'default' : 'pointer' }}
+                              title={productItemImagePreview.startsWith('data:') ? '' : "Click to open image"} 
                               style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px', marginTop: '8px' }}
                             />
                           )}
                           {!productItemImagePreview && productItemForm.getFieldValue('image_url') && (
                             <img 
-                              src={productItemForm.getFieldValue('image_url')} 
-                              alt="Current" 
+                              src={getImageUrl(productItemForm.getFieldValue('image_url'))} 
+                              alt="Current"
+                              onClick={() => openImageInNewTab(productItemForm.getFieldValue('image_url'))}
+                              style={{ cursor: 'pointer' }}
+                              title="Click to open image" 
                               style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px', marginTop: '8px' }}
                             />
                           )}
@@ -1665,8 +1689,11 @@ const ProductDetail = () => {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                           {sub.image_url && (
                                             <img 
-                                              src={sub.image_url} 
+                                              src={getImageUrl(sub.image_url)} 
                                               alt={sub.name}
+                                              onClick={() => openImageInNewTab(sub.image_url)}
+                                              style={{ cursor: 'pointer' }}
+                                              title="Click to open image"
                                               style={{ width: '20px', height: '20px', objectFit: 'cover', borderRadius: '2px' }}
                                             />
                                           )}

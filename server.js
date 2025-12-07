@@ -208,6 +208,93 @@ const requireSuperAdmin = (req, res, next) => {
 };
 
 // Auth Routes
+// Customer registration endpoint (public, per product)
+app.post('/api/auth/register-customer', async (req, res) => {
+  const { email, password, phone, first_name, last_name, productId } = req.body;
+
+  if (!email || !email.trim() || !password || !password.trim()) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  if (!productId) {
+    return res.status(400).json({ error: 'Product ID is required' });
+  }
+
+  try {
+    // Check if product exists
+    db.get('SELECT id FROM products WHERE id = ?', [productId], (err, product) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking product' });
+      }
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      // Check if email already exists
+      db.get('SELECT id FROM users WHERE email = ?', [email.trim()], (err, existingUser) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error checking user' });
+        }
+        if (existingUser) {
+          return res.status(400).json({ error: 'Email already registered' });
+        }
+
+        const hashedPassword = bcrypt.hashSync(password, 10);
+        const trimmedEmail = email.trim();
+        const trimmedPhone = phone ? phone.trim() : null;
+        const trimmedFirstName = first_name ? first_name.trim() : null;
+        const trimmedLastName = last_name ? last_name.trim() : null;
+        
+        // Use email as username for customers
+        const username = trimmedEmail;
+
+        db.run(
+          'INSERT INTO users (username, email, password, role, phone, first_name, last_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [username, trimmedEmail, hashedPassword, 'customer', trimmedPhone, trimmedFirstName, trimmedLastName],
+          function(err) {
+            if (err) {
+              if (err.message.includes('UNIQUE constraint')) {
+                return res.status(400).json({ error: 'Email already exists' });
+              }
+              return res.status(500).json({ error: 'Error creating customer' });
+            }
+            const userId = this.lastID;
+            
+            // Assign customer to the product
+            db.run('INSERT INTO user_products (user_id, product_id) VALUES (?, ?)', [userId, productId], (err) => {
+              if (err) {
+                console.error('Error assigning product to customer:', err);
+                // Continue even if assignment fails
+              }
+              
+              const token = jwt.sign(
+                { id: userId, username, email: trimmedEmail, role: 'customer' },
+                JWT_SECRET,
+                { expiresIn: '24h' }
+              );
+              res.status(201).json({ 
+                token, 
+                user: { 
+                  id: userId, 
+                  username, 
+                  email: trimmedEmail, 
+                  role: 'customer',
+                  phone: trimmedPhone,
+                  first_name: trimmedFirstName,
+                  last_name: trimmedLastName
+                } 
+              });
+            });
+          }
+        );
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Original admin/user registration endpoint
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -300,6 +387,54 @@ app.post('/api/auth/login', (req, res) => {
         });
       }
 
+      // Customer can login if they have access to a product with this domain
+      if (user.role === 'customer') {
+        // Get the product ID for this domain
+        db.get('SELECT id FROM products WHERE LOWER(domain) = LOWER(?)', [trimmedDomain], (err, product) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error checking domain' });
+          }
+          if (!product) {
+            return res.status(403).json({ error: 'No product found for this domain' });
+          }
+
+          // Check if customer has access to this product
+          db.get(
+            'SELECT * FROM user_products WHERE user_id = ? AND product_id = ?',
+            [user.id, product.id],
+            (err, userProduct) => {
+              if (err) {
+                return res.status(500).json({ error: 'Error checking product access' });
+              }
+              if (!userProduct) {
+                return res.status(403).json({ error: 'You do not have access to this domain' });
+              }
+
+              // Customer has access, create token
+              const token = jwt.sign(
+                { id: user.id, username: user.username, email: user.email, role: user.role },
+                JWT_SECRET,
+                { expiresIn: '24h' }
+              );
+
+              res.json({
+                token,
+                user: {
+                  id: user.id,
+                  username: user.username,
+                  email: user.email,
+                  role: user.role,
+                  phone: user.phone || null,
+                  first_name: user.first_name || null,
+                  last_name: user.last_name || null
+                }
+              });
+            }
+          );
+        });
+        return;
+      }
+
       // For non-super-admin users, check if they have access to a product with this domain
       // First, get the product ID for this domain
       db.get('SELECT id FROM products WHERE LOWER(domain) = LOWER(?)', [trimmedDomain], (err, product) => {
@@ -335,7 +470,10 @@ app.post('/api/auth/login', (req, res) => {
                 id: user.id,
                 username: user.username,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                phone: user.phone || null,
+                first_name: user.first_name || null,
+                last_name: user.last_name || null
               }
             });
           }
@@ -347,7 +485,30 @@ app.post('/api/auth/login', (req, res) => {
 
 // Get current user
 app.get('/api/auth/me', authenticateToken, (req, res) => {
-  res.json({ user: req.user });
+  // Fetch full user data from database to include customer fields
+  db.get(
+    'SELECT id, username, email, role, phone, first_name, last_name, created_at FROM users WHERE id = ?',
+    [req.user.id],
+    (err, user) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching user data' });
+      }
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      res.json({ 
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          phone: user.phone || null,
+          first_name: user.first_name || null,
+          last_name: user.last_name || null
+        }
+      });
+    }
+  );
 });
 
 // Admin Routes - Get all users with their products (admin and super admin only)
@@ -356,7 +517,7 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, (req, res) => {
   
   // Super admin can see all users
   if (currentUser.role === 'super_admin') {
-    db.all('SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC', (err, users) => {
+    db.all('SELECT id, username, email, role, phone, first_name, last_name, created_at FROM users ORDER BY created_at DESC', (err, users) => {
       if (err) {
         return res.status(500).json({ error: 'Error fetching users' });
       }
@@ -405,7 +566,7 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, (req, res) => {
         
         // Find all users (excluding super_admin) that have at least one product
         db.all(
-          `SELECT DISTINCT u.id, u.username, u.email, u.role, u.created_at 
+          `SELECT DISTINCT u.id, u.username, u.email, u.role, u.phone, u.first_name, u.last_name, u.created_at 
            FROM users u
            INNER JOIN user_products up ON u.id = up.user_id
            WHERE u.role != 'super_admin'
@@ -1415,7 +1576,144 @@ app.delete('/api/products/:id', authenticateToken, requireSuperAdmin, (req, res)
   }
 });
 
-// Categories API - Get all categories for a specific product
+// Helper function to get domain from request headers
+const getDomainFromRequest = (req) => {
+  // Priority 1: Try custom X-Client-Domain header (if frontend sends it)
+  const clientDomain = req.get('x-client-domain') || req.headers['x-client-domain'];
+  if (clientDomain && clientDomain.trim()) {
+    return clientDomain.trim();
+  }
+  
+  // Priority 2: Try Origin header (e.g., "http://localhost:3000") - this is set by browser for CORS
+  const origin = req.get('origin') || req.headers.origin;
+  if (origin) {
+    try {
+      const url = new URL(origin);
+      return url.host; // Returns "localhost:3000"
+    } catch (e) {
+      // If URL parsing fails, try manual extraction
+      const host = origin.replace(/^https?:\/\//, '').split('/')[0].split('?')[0];
+      if (host) return host;
+    }
+  }
+  
+  // Priority 3: Try Referer header (e.g., "http://localhost:3000/shop")
+  const referer = req.get('referer') || req.headers.referer;
+  if (referer) {
+    try {
+      const url = new URL(referer);
+      return url.host; // Returns "localhost:3000"
+    } catch (e) {
+      const host = referer.replace(/^https?:\/\//, '').split('/')[0].split('?')[0];
+      if (host) return host;
+    }
+  }
+  
+  // Priority 4: Try Host header (fallback, but this will be backend server, not frontend)
+  const host = req.get('host') || req.headers.host;
+  if (host) {
+    return host;
+  }
+  
+  return null;
+};
+
+// Public API - Get categories (for end users/shop page) - detects domain from request headers
+// This route must come BEFORE the authenticated /api/categories route
+app.get('/api/public/categories', (req, res) => {
+  const { productId: requestedProductId } = req.query;
+  
+  // Get domain from request headers
+  const domain = getDomainFromRequest(req);
+  
+  if (!domain || !domain.trim()) {
+    return res.status(400).json({ error: 'Could not determine domain from request. Please ensure Host header is present.' });
+  }
+
+  const trimmedDomain = domain.trim();
+
+  // First, find the product by domain
+  db.get('SELECT id, domain FROM products WHERE LOWER(TRIM(domain)) = LOWER(?)', [trimmedDomain], (err, product) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching product: ' + err.message });
+    }
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found for this domain' });
+    }
+
+    const productId = product.id;
+    const productDomain = product.domain;
+
+    // Validation: If productId is provided in request, verify it matches the domain's product
+    if (requestedProductId) {
+      const requestedId = parseInt(requestedProductId);
+      if (isNaN(requestedId)) {
+        return res.status(400).json({ error: 'Invalid productId parameter' });
+      }
+      
+      if (productId !== requestedId) {
+        return res.status(403).json({ 
+          error: 'Domain mismatch: The provided domain does not match the requested product. ' +
+                 `Domain "${trimmedDomain}" belongs to product ${productId}, not product ${requestedId}.`
+        });
+      }
+    }
+
+    // Additional validation: Ensure the domain in URL exactly matches the product's domain
+    if (productDomain && productDomain.trim().toLowerCase() !== trimmedDomain.toLowerCase()) {
+      return res.status(403).json({ 
+        error: 'Domain validation failed: The domain does not match the product configuration.'
+      });
+    }
+
+    // Get categories for this product (same query as authenticated endpoint)
+    db.all(`
+      SELECT 
+        c.id,
+        c.name,
+        c.display_order,
+        GROUP_CONCAT(sc.id || ':' || sc.name || ':' || sc.display_order || ':' || COALESCE(sc.image_url, ''), '||') as sub_categories
+      FROM categories c
+      LEFT JOIN sub_categories sc ON c.id = sc.category_id AND sc.product_id = ?
+      WHERE c.product_id = ?
+      GROUP BY c.id
+      ORDER BY c.display_order ASC
+    `, [productId, productId], (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching categories: ' + err.message });
+      }
+
+      const categories = rows.map(row => {
+        const subCategories = row.sub_categories
+          ? row.sub_categories.split('||').map(sub => {
+              const parts = sub.split(':');
+              const id = parts[0];
+              const name = parts[1];
+              const order = parts[2];
+              const image_url = parts[3] || null;
+              return { 
+                id: parseInt(id), 
+                name, 
+                display_order: parseInt(order) || 0,
+                image_url: image_url || null
+              };
+            }).sort((a, b) => a.display_order - b.display_order)
+          : [];
+
+        return {
+          id: row.id,
+          name: row.name,
+          display_order: row.display_order || 0,
+          subCategories
+        };
+      });
+
+      res.json({ categories, productId });
+    });
+  });
+});
+
+// Categories API - Get all categories for a specific product (authenticated)
 app.get('/api/categories', authenticateToken, (req, res) => {
   const { productId } = req.query;
 
@@ -2094,7 +2392,265 @@ app.put('/api/promo-codes/:id/toggle', authenticateToken, requireAdmin, (req, re
   });
 });
 
-// Product Items API - Get all product items for a product
+// Public API - Get single product item by ID with domain validation (for end users)
+app.get('/api/product-items/:id', (req, res) => {
+  const { id } = req.params;
+  
+  // Get domain from request headers
+  const domain = getDomainFromRequest(req);
+  
+  if (!domain || !domain.trim()) {
+    return res.status(400).json({ error: 'Could not determine domain from request. Please ensure Host header is present.' });
+  }
+
+  const trimmedDomain = domain.trim();
+  const itemId = parseInt(id);
+
+  if (isNaN(itemId)) {
+    return res.status(400).json({ error: 'Invalid product item ID' });
+  }
+
+  // First, find the product by domain
+  db.get('SELECT id FROM products WHERE LOWER(TRIM(domain)) = LOWER(?)', [trimmedDomain], (err, product) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching product: ' + err.message });
+    }
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found for this domain' });
+    }
+
+    const productId = product.id;
+
+    // Get the product item
+    db.get(`
+      SELECT 
+        pi.id,
+        pi.product_id,
+        pi.name,
+        pi.description,
+        pi.weight,
+        pi.price,
+        pi.brand_id,
+        pi.image_url,
+        pi.display_order,
+        pi.is_active,
+        pi.created_at,
+        pi.updated_at,
+        b.name as brand_name
+      FROM product_items pi
+      LEFT JOIN brands b ON pi.brand_id = b.id
+      WHERE pi.id = ? AND pi.product_id = ? AND pi.is_active = 1
+    `, [itemId, productId], (err, item) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching product item: ' + err.message });
+      }
+      if (!item) {
+        return res.status(404).json({ error: 'Product item not found or does not belong to this product' });
+      }
+
+      // Fetch sub-categories for this item
+      db.all(`
+        SELECT 
+          sc.id,
+          sc.name,
+          sc.image_url,
+          c.id as category_id,
+          c.name as category_name
+        FROM item_sub_categories isc
+        INNER JOIN sub_categories sc ON isc.sub_category_id = sc.id
+        INNER JOIN categories c ON sc.category_id = c.id
+        WHERE isc.product_item_id = ?
+        ORDER BY c.display_order ASC, sc.display_order ASC
+      `, [itemId], (err, subCategories) => {
+        if (err) {
+          console.error('Error fetching sub-categories:', err);
+        }
+
+        // Group sub-categories by category
+        const categoriesMap = {};
+        if (subCategories) {
+          subCategories.forEach(sc => {
+            if (!categoriesMap[sc.category_id]) {
+              categoriesMap[sc.category_id] = {
+                id: sc.category_id,
+                name: sc.category_name,
+                subCategories: []
+              };
+            }
+            categoriesMap[sc.category_id].subCategories.push({
+              id: sc.id,
+              name: sc.name,
+              image_url: sc.image_url
+            });
+          });
+        }
+
+        const categories = Object.values(categoriesMap);
+
+        res.json({
+          productItem: {
+            ...item,
+            categories: categories
+          }
+        });
+      });
+    });
+  });
+});
+
+// Public API - Get brands for a product (for end users/shop page) - detects domain from request headers
+app.get('/api/public/brands', (req, res) => {
+  // Get domain from request headers
+  const domain = getDomainFromRequest(req);
+  
+  if (!domain || !domain.trim()) {
+    return res.status(400).json({ error: 'Could not determine domain from request. Please ensure Host header is present.' });
+  }
+
+  const trimmedDomain = domain.trim();
+
+  // First, find the product by domain
+  db.get('SELECT id FROM products WHERE LOWER(TRIM(domain)) = LOWER(?)', [trimmedDomain], (err, product) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching product: ' + err.message });
+    }
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found for this domain' });
+    }
+
+    const productId = product.id;
+
+    // Check if brands table exists
+    db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='brands'", (err, tables) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking brands table: ' + err.message });
+      }
+
+      // If table doesn't exist, return empty array
+      if (!tables || tables.length === 0) {
+        return res.json({ brands: [], productId });
+      }
+
+      // Fetch brands for this product
+      db.all(`
+        SELECT 
+          id,
+          product_id,
+          name,
+          created_at,
+          updated_at
+        FROM brands
+        WHERE product_id = ?
+        ORDER BY name ASC
+      `, [productId], (err, brands) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error fetching brands: ' + err.message });
+        }
+        res.json({ brands: brands || [], productId });
+      });
+    });
+  });
+});
+
+// Public API - Get product items by domain (for end users/shop page)
+app.get('/api/product-items', (req, res) => {
+  const { subCategoryIds, brandIds, search } = req.query;
+  
+  // Get domain from request headers
+  const domain = getDomainFromRequest(req);
+  
+  if (!domain || !domain.trim()) {
+    return res.status(400).json({ error: 'Could not determine domain from request. Please ensure Host header is present.' });
+  }
+
+  const trimmedDomain = domain.trim();
+
+  // First, find the product by domain
+  db.get('SELECT id FROM products WHERE LOWER(TRIM(domain)) = LOWER(?)', [trimmedDomain], (err, product) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching product: ' + err.message });
+    }
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found for this domain' });
+    }
+
+    const productId = product.id;
+
+    // Parse subCategoryIds if provided (comma-separated string)
+    let subCategoryIdArray = [];
+    if (subCategoryIds) {
+      subCategoryIdArray = subCategoryIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+    }
+
+    // Parse brandIds if provided (comma-separated string)
+    let brandIdArray = [];
+    if (brandIds) {
+      brandIdArray = brandIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+    }
+
+    // Build query - if subCategoryIds or brandIds provided, filter by them
+    let query = `
+      SELECT 
+        pi.id,
+        pi.product_id,
+        pi.name,
+        pi.description,
+        pi.weight,
+        pi.price,
+        pi.brand_id,
+        pi.image_url,
+        pi.display_order,
+        pi.is_active,
+        pi.created_at,
+        pi.updated_at,
+        b.name as brand_name
+      FROM product_items pi
+      LEFT JOIN brands b ON pi.brand_id = b.id
+      WHERE pi.product_id = ? AND pi.is_active = 1
+    `;
+
+    const queryParams = [productId];
+
+    // If subCategoryIds provided, filter by them (AND logic - product must have ALL selected subcategories)
+    if (subCategoryIdArray.length > 0) {
+      const placeholders = subCategoryIdArray.map(() => '?').join(',');
+      query += ` AND pi.id IN (
+        SELECT isc.product_item_id 
+        FROM item_sub_categories isc 
+        WHERE isc.sub_category_id IN (${placeholders})
+        GROUP BY isc.product_item_id
+        HAVING COUNT(DISTINCT isc.sub_category_id) = ?
+      )`;
+      queryParams.push(...subCategoryIdArray, subCategoryIdArray.length);
+    }
+
+    // If brandIds provided, filter by them (OR logic - product can have ANY of the selected brands)
+    if (brandIdArray.length > 0) {
+      const brandPlaceholders = brandIdArray.map(() => '?').join(',');
+      query += ` AND pi.brand_id IN (${brandPlaceholders})`;
+      queryParams.push(...brandIdArray);
+    }
+
+    // If search query provided, filter by name or description (minimum 2 characters)
+    if (search && search.trim().length >= 2) {
+      const searchTerm = `%${search.trim()}%`;
+      query += ` AND (pi.name LIKE ? OR pi.description LIKE ?)`;
+      queryParams.push(searchTerm, searchTerm);
+    }
+
+    query += ' ORDER BY pi.display_order ASC, pi.created_at ASC';
+
+    db.all(query, queryParams, (err, productItems) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching product items: ' + err.message });
+      }
+
+      res.json({ productItems: productItems || [] });
+    });
+  });
+});
+
+// Product Items API - Get all product items for a product (authenticated)
 app.get('/api/products/:id/product-items', authenticateToken, (req, res) => {
   const { id } = req.params;
 
@@ -3450,60 +4006,6 @@ app.get('/api/products/debug-domains', (req, res) => {
 });
 
 // Public endpoint to get product ID by domain
-app.get('/api/products/by-domain', (req, res) => {
-  const { domain } = req.query;
-
-  if (!domain || !domain.trim()) {
-    return res.status(400).json({ error: 'Domain parameter is required' });
-  }
-
-  const trimmedDomain = domain.trim();
-  console.log('Searching for domain:', trimmedDomain);
-
-  // Query for product with matching domain
-  db.get('SELECT id FROM products WHERE LOWER(TRIM(domain)) = LOWER(?)', [trimmedDomain], (err, product) => {
-    if (err) {
-      console.error('Database error:', err);
-      // Check if domain column exists
-      if (err.message && err.message.includes('no such column: domain')) {
-        return res.status(500).json({ 
-          error: 'Domain column does not exist. Please run database migrations: npm run migrate' 
-        });
-      }
-      return res.status(500).json({ error: 'Error fetching product: ' + err.message });
-    }
-    if (!product) {
-      // Debug: Get all products to help troubleshoot
-      db.all('SELECT id, name, domain FROM products', (err, allProducts) => {
-        if (!err && allProducts) {
-          console.log('All products in database:');
-          allProducts.forEach(p => {
-            console.log(`  ID: ${p.id}, Name: "${p.name}", Domain: "${p.domain || '(NULL or empty)'}"`);
-          });
-          console.log(`Searching for: "${trimmedDomain}"`);
-          
-          // Check for close matches
-          const closeMatches = allProducts.filter(p => {
-            if (!p.domain) return false;
-            const storedDomain = p.domain.trim().toLowerCase();
-            const searchDomain = trimmedDomain.toLowerCase();
-            return storedDomain.includes(searchDomain) || searchDomain.includes(storedDomain);
-          });
-          
-          if (closeMatches.length > 0) {
-            console.log('Close matches found:', closeMatches.map(p => `ID: ${p.id}, Domain: "${p.domain}"`));
-          }
-        }
-      });
-      return res.status(404).json({ 
-        error: `Product not found for domain "${trimmedDomain}". Check that the product has the domain field set correctly.`,
-        hint: 'Visit /api/products/debug-domains to see all products and their domains'
-      });
-    }
-    console.log('Product found:', product.id);
-    res.json({ productId: product.id });
-  });
-});
 
 // Root route - helpful message in development
 if (process.env.NODE_ENV !== 'production') {

@@ -19,8 +19,8 @@ const Login = () => {
     const result = await login(username, password);
 
     if (result.success) {
-      // Redirect to root which will show the admin dashboard for this domain
-      navigate('/');
+      // Redirect to admin dashboard
+      navigate('/admin');
     } else {
       setError(result.error);
     }

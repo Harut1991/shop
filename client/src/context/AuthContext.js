@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
-const API_URL = '/api';
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

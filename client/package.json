@@ -2,7 +2,6 @@
   "name": "shop-frontend",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:5000",
   "dependencies": {
     "antd": "^6.0.0",
     "axios": "^1.5.0",
