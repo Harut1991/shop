@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Card, Button, Table, Typography, Space, Empty, message, Image } from 'antd';
+import { Layout, Card, Button, Table, Typography, Space, Empty, message, Image, Row, Col, Divider } from 'antd';
 import { ShoppingCartOutlined, DeleteOutlined, PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
@@ -210,40 +210,71 @@ const Cart = () => {
               </Button>
             </Empty>
           ) : (
-            <>
-              <Table
-                columns={columns}
-                dataSource={cartItems}
-                rowKey="id"
-                pagination={false}
-                style={{ marginBottom: '24px' }}
-              />
-              
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'flex-end', 
-                alignItems: 'center',
-                gap: '16px',
-                padding: '24px',
-                background: '#fafafa',
-                borderRadius: '4px'
-              }}>
-                <div style={{ textAlign: 'right' }}>
-                  <Text style={{ fontSize: '16px' }}>Total: </Text>
-                  <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
-                    ${total.toFixed(2)}
-                  </Title>
-                </div>
-                <Space>
+            <Row gutter={[24, 24]}>
+              {/* Left Column - Cart Items Table */}
+              <Col xs={24} lg={16}>
+                <Table
+                  columns={columns}
+                  dataSource={cartItems}
+                  rowKey="id"
+                  pagination={false}
+                />
+                <div style={{ marginTop: '16px' }}>
                   <Button onClick={() => navigate('/shop')}>
                     Continue Shopping
                   </Button>
-                  <Button type="primary" size="large">
-                    Checkout
+                </div>
+              </Col>
+
+              {/* Right Column - Checkout Summary */}
+              <Col xs={24} lg={8}>
+                <Card 
+                  style={{ 
+                    position: 'sticky',
+                    top: '24px'
+                  }}
+                >
+                  <Title level={4} style={{ marginBottom: '16px' }}>
+                    Order Summary
+                  </Title>
+                  
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      marginBottom: '16px'
+                    }}>
+                      <Text style={{ fontSize: '16px' }}>Subtotal</Text>
+                      <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
+                        ${total.toFixed(2)}
+                      </Title>
+                    </div>
+                  </div>
+
+                  <Divider />
+
+                  <Button 
+                    type="primary" 
+                    size="large" 
+                    block
+                    style={{ marginBottom: '16px' }}
+                    onClick={() => navigate('/checkout')}
+                  >
+                    CHECKOUT
                   </Button>
-                </Space>
-              </div>
-            </>
+
+                  <div style={{ 
+                    textAlign: 'center', 
+                    color: '#666',
+                    fontSize: '14px',
+                    marginTop: '16px'
+                  }}>
+                    Have a Promo Code? Apply on next step.
+                  </div>
+                </Card>
+              </Col>
+            </Row>
           )}
         </Card>
       </Content>

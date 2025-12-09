@@ -207,6 +207,27 @@ const requireSuperAdmin = (req, res, next) => {
   next();
 };
 
+// Helper function to check if user has access to a product
+// Returns callback with (err, hasAccess) where hasAccess is boolean
+const checkProductAccess = (userId, userRole, productId, callback) => {
+  // Super admin has access to all products
+  if (userRole === 'super_admin') {
+    return callback(null, true);
+  }
+
+  // Check if user has access to this product via user_products table
+  db.get(
+    'SELECT product_id FROM user_products WHERE user_id = ? AND product_id = ?',
+    [userId, productId],
+    (err, access) => {
+      if (err) {
+        return callback(err, false);
+      }
+      callback(null, !!access);
+    }
+  );
+};
+
 // Auth Routes
 // Customer registration endpoint (public, per product)
 app.post('/api/auth/register-customer', async (req, res) => {
@@ -2213,24 +2234,39 @@ app.delete('/api/sub-categories/:id', authenticateToken, requireAdmin, (req, res
 // Promo Codes API - Get all promo codes for a product
 app.get('/api/products/:id/promo-codes', authenticateToken, (req, res) => {
   const { id } = req.params;
+  const productId = parseInt(id);
 
-  db.all(`
-    SELECT 
-      id,
-      product_id,
-      name,
-      discount_percentage,
-      is_active,
-      created_at,
-      updated_at
-    FROM promo_codes
-    WHERE product_id = ?
-    ORDER BY created_at DESC
-  `, [id], (err, promoCodes) => {
+  if (isNaN(productId)) {
+    return res.status(400).json({ error: 'Invalid product ID' });
+  }
+
+  // Check if user has access to this product
+  checkProductAccess(req.user.id, req.user.role, productId, (err, hasAccess) => {
     if (err) {
-      return res.status(500).json({ error: 'Error fetching promo codes' });
+      return res.status(500).json({ error: 'Error checking product access' });
     }
-    res.json({ promoCodes: promoCodes || [] });
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this product' });
+    }
+
+    db.all(`
+      SELECT 
+        id,
+        product_id,
+        name,
+        discount_percentage,
+        is_active,
+        created_at,
+        updated_at
+      FROM promo_codes
+      WHERE product_id = ?
+      ORDER BY created_at DESC
+    `, [productId], (err, promoCodes) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching promo codes' });
+      }
+      res.json({ promoCodes: promoCodes || [] });
+    });
   });
 });
 
@@ -2256,14 +2292,27 @@ app.post('/api/products/:id/promo-codes', authenticateToken, requireAdmin, (req,
   const productId = parseInt(id);
   const active = is_active !== undefined ? (is_active ? 1 : 0) : 1;
 
-  // Check if product exists
-  db.get('SELECT id FROM products WHERE id = ?', [productId], (err, product) => {
+  if (isNaN(productId)) {
+    return res.status(400).json({ error: 'Invalid product ID' });
+  }
+
+  // Check if user has access to this product
+  checkProductAccess(req.user.id, req.user.role, productId, (err, hasAccess) => {
     if (err) {
-      return res.status(500).json({ error: 'Error checking product' });
+      return res.status(500).json({ error: 'Error checking product access' });
     }
-    if (!product) {
-      return res.status(404).json({ error: 'Product not found' });
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this product' });
     }
+
+    // Check if product exists
+    db.get('SELECT id FROM products WHERE id = ?', [productId], (err, product) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking product' });
+      }
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
 
     // Check for duplicate name within this product
     db.get('SELECT id FROM promo_codes WHERE product_id = ? AND LOWER(name) = LOWER(?)', 
@@ -2276,17 +2325,18 @@ app.post('/api/products/:id/promo-codes', authenticateToken, requireAdmin, (req,
           return res.status(400).json({ error: 'A promo code with this name already exists for this product' });
         }
 
-        db.run('INSERT INTO promo_codes (product_id, name, discount_percentage, is_active) VALUES (?, ?, ?, ?)',
-          [productId, trimmedName, discount, active],
-          function(err) {
-            if (err) {
-              return res.status(500).json({ error: 'Error creating promo code' });
+          db.run('INSERT INTO promo_codes (product_id, name, discount_percentage, is_active) VALUES (?, ?, ?, ?)',
+            [productId, trimmedName, discount, active],
+            function(err) {
+              if (err) {
+                return res.status(500).json({ error: 'Error creating promo code' });
+              }
+              res.status(201).json({ message: 'Promo code created', id: this.lastID });
             }
-            res.status(201).json({ message: 'Promo code created', id: this.lastID });
-          }
-        );
-      }
-    );
+          );
+        }
+      );
+    });
   });
 });
 
@@ -3122,37 +3172,52 @@ app.put('/api/product-items/reorder', authenticateToken, requireAdmin, (req, res
 // Brands API - Get all brands for a product
 app.get('/api/products/:id/brands', authenticateToken, (req, res) => {
   const { id } = req.params;
+  const productId = parseInt(id);
 
-  // First check if table exists
-  db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='brands'", (err, tables) => {
+  if (isNaN(productId)) {
+    return res.status(400).json({ error: 'Invalid product ID' });
+  }
+
+  // Check if user has access to this product
+  checkProductAccess(req.user.id, req.user.role, productId, (err, hasAccess) => {
     if (err) {
-      console.error('Error checking brands table:', err);
-      return res.status(500).json({ error: 'Error checking brands table: ' + err.message });
+      return res.status(500).json({ error: 'Error checking product access' });
+    }
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this product' });
     }
 
-    // If table doesn't exist, return empty array
-    if (!tables || tables.length === 0) {
-      console.log('Brands table does not exist yet, returning empty array');
-      return res.json({ brands: [] });
-    }
-
-    // Table exists, fetch brands
-    db.all(`
-      SELECT 
-        id,
-        product_id,
-        name,
-        created_at,
-        updated_at
-      FROM brands
-      WHERE product_id = ?
-      ORDER BY name ASC
-    `, [id], (err, brands) => {
+    // First check if table exists
+    db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='brands'", (err, tables) => {
       if (err) {
-        console.error('Error fetching brands:', err);
-        return res.status(500).json({ error: 'Error fetching brands: ' + err.message });
+        console.error('Error checking brands table:', err);
+        return res.status(500).json({ error: 'Error checking brands table: ' + err.message });
       }
-      res.json({ brands: brands || [] });
+
+      // If table doesn't exist, return empty array
+      if (!tables || tables.length === 0) {
+        console.log('Brands table does not exist yet, returning empty array');
+        return res.json({ brands: [] });
+      }
+
+      // Table exists, fetch brands
+      db.all(`
+        SELECT 
+          id,
+          product_id,
+          name,
+          created_at,
+          updated_at
+        FROM brands
+        WHERE product_id = ?
+        ORDER BY name ASC
+      `, [productId], (err, brands) => {
+        if (err) {
+          console.error('Error fetching brands:', err);
+          return res.status(500).json({ error: 'Error fetching brands: ' + err.message });
+        }
+        res.json({ brands: brands || [] });
+      });
     });
   });
 });
@@ -3280,6 +3345,801 @@ app.delete('/api/brands/:id', authenticateToken, requireAdmin, (req, res) => {
         return res.status(404).json({ error: 'Brand not found' });
       }
       res.json({ message: 'Brand deleted successfully' });
+    });
+  });
+});
+
+// Taxes API - Get all taxes for a product
+app.get('/api/products/:id/taxes', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const productId = parseInt(id);
+
+  if (isNaN(productId)) {
+    return res.status(400).json({ error: 'Invalid product ID' });
+  }
+
+  // Check if user has access to this product
+  checkProductAccess(req.user.id, req.user.role, productId, (err, hasAccess) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking product access' });
+    }
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this product' });
+    }
+
+    // First check if table exists
+    db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='taxes'", (err, tables) => {
+      if (err) {
+        console.error('Error checking taxes table:', err);
+        return res.status(500).json({ error: 'Error checking taxes table: ' + err.message });
+      }
+
+      // If table doesn't exist, return empty array
+      if (!tables || tables.length === 0) {
+        console.log('Taxes table does not exist yet, returning empty array');
+        return res.json({ taxes: [] });
+      }
+
+      // Table exists, fetch taxes
+      db.all(`
+        SELECT 
+          id,
+          product_id,
+          name,
+          type,
+          value,
+          display_order,
+          is_active,
+          created_at,
+          updated_at
+        FROM taxes
+        WHERE product_id = ?
+        ORDER BY display_order ASC, created_at ASC
+      `, [productId], (err, taxes) => {
+        if (err) {
+          console.error('Error fetching taxes:', err);
+          return res.status(500).json({ error: 'Error fetching taxes: ' + err.message });
+        }
+        res.json({ taxes: taxes || [] });
+      });
+    });
+  });
+});
+
+// Taxes API - Create tax
+app.post('/api/products/:id/taxes', authenticateToken, requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { name, type, value, display_order, is_active } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Tax name is required' });
+  }
+
+  if (!type || !['percentage', 'fixed'].includes(type)) {
+    return res.status(400).json({ error: 'Tax type must be "percentage" or "fixed"' });
+  }
+
+  if (value === undefined || value === null || isNaN(parseFloat(value)) || parseFloat(value) < 0) {
+    return res.status(400).json({ error: 'Tax value must be a valid non-negative number' });
+  }
+
+  const trimmedName = name.trim();
+  const productIdNum = parseInt(id);
+  const taxValue = parseFloat(value);
+  const displayOrder = display_order !== undefined ? parseInt(display_order) : 0;
+  const isActive = is_active !== undefined ? (is_active ? 1 : 0) : 1;
+  
+  if (isNaN(productIdNum)) {
+    return res.status(400).json({ error: 'Invalid product ID' });
+  }
+
+  // Check if user has access to this product
+  checkProductAccess(req.user.id, req.user.role, productIdNum, (err, hasAccess) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking product access' });
+    }
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this product' });
+    }
+
+    // Verify product exists
+    db.get('SELECT id FROM products WHERE id = ?', [productIdNum], (err, product) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking product' });
+      }
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      db.run(
+        'INSERT INTO taxes (product_id, name, type, value, display_order, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+        [productIdNum, trimmedName, type, taxValue, displayOrder, isActive],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Error creating tax: ' + err.message });
+          }
+          res.status(201).json({ message: 'Tax created', id: this.lastID });
+        }
+      );
+    });
+  });
+});
+
+// Taxes API - Update tax
+app.put('/api/taxes/:id', authenticateToken, requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { name, type, value, display_order, is_active } = req.body;
+
+  if (name !== undefined && (!name || !name.trim())) {
+    return res.status(400).json({ error: 'Tax name cannot be empty' });
+  }
+
+  if (type !== undefined && !['percentage', 'fixed'].includes(type)) {
+    return res.status(400).json({ error: 'Tax type must be "percentage" or "fixed"' });
+  }
+
+  if (value !== undefined && (isNaN(parseFloat(value)) || parseFloat(value) < 0)) {
+    return res.status(400).json({ error: 'Tax value must be a valid non-negative number' });
+  }
+
+  // Check if tax exists
+  db.get('SELECT id, product_id FROM taxes WHERE id = ?', [id], (err, tax) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking tax' });
+    }
+    if (!tax) {
+      return res.status(404).json({ error: 'Tax not found' });
+    }
+
+    // Check if user has access to this product
+    checkProductAccess(req.user.id, req.user.role, tax.product_id, (err, hasAccess) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking product access' });
+      }
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'You do not have access to this product' });
+      }
+
+    // Build update query dynamically
+    const updates = [];
+    const values = [];
+
+    if (name !== undefined) {
+      updates.push('name = ?');
+      values.push(name.trim());
+    }
+    if (type !== undefined) {
+      updates.push('type = ?');
+      values.push(type);
+    }
+    if (value !== undefined) {
+      updates.push('value = ?');
+      values.push(parseFloat(value));
+    }
+    if (display_order !== undefined) {
+      updates.push('display_order = ?');
+      values.push(parseInt(display_order));
+    }
+    if (is_active !== undefined) {
+      updates.push('is_active = ?');
+      values.push(is_active ? 1 : 0);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+      db.run(
+        `UPDATE taxes SET ${updates.join(', ')} WHERE id = ?`,
+        values,
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Error updating tax: ' + err.message });
+          }
+          if (this.changes === 0) {
+            return res.status(404).json({ error: 'Tax not found' });
+          }
+          res.json({ message: 'Tax updated successfully' });
+        }
+      );
+    });
+  });
+});
+
+// Taxes API - Delete tax
+app.delete('/api/taxes/:id', authenticateToken, requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { productId } = req.query; // Get productId from query to validate ownership
+
+  if (!productId) {
+    return res.status(400).json({ error: 'Product ID is required' });
+  }
+
+  const productIdNum = parseInt(productId);
+  if (isNaN(productIdNum)) {
+    return res.status(400).json({ error: 'Invalid product ID' });
+  }
+
+  // Check if tax exists and belongs to this product
+  db.get('SELECT id, product_id FROM taxes WHERE id = ?', [id], (err, tax) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking tax' });
+    }
+    if (!tax) {
+      return res.status(404).json({ error: 'Tax not found' });
+    }
+    if (tax.product_id !== productIdNum) {
+      return res.status(403).json({ error: 'Tax does not belong to this product' });
+    }
+
+    // Check if user has access to this product
+    checkProductAccess(req.user.id, req.user.role, tax.product_id, (err, hasAccess) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking product access' });
+      }
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'You do not have access to this product' });
+      }
+
+      db.run('DELETE FROM taxes WHERE id = ? AND product_id = ?', [id, productIdNum], function(err) {
+        if (err) {
+          return res.status(500).json({ error: 'Error deleting tax' });
+        }
+        if (this.changes === 0) {
+          return res.status(404).json({ error: 'Tax not found' });
+        }
+        res.json({ message: 'Tax deleted successfully' });
+      });
+    });
+  });
+});
+
+// Public API - Get taxes for a product (for end users/checkout) - detects domain from request headers
+app.get('/api/public/taxes', (req, res) => {
+  // Get domain from request headers
+  const domain = getDomainFromRequest(req);
+  
+  if (!domain || !domain.trim()) {
+    return res.status(400).json({ error: 'Could not determine domain from request. Please ensure Host header is present.' });
+  }
+
+  const trimmedDomain = domain.trim();
+
+  // First, find the product by domain
+  db.get('SELECT id FROM products WHERE LOWER(TRIM(domain)) = LOWER(?)', [trimmedDomain], (err, product) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching product: ' + err.message });
+    }
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found for this domain' });
+    }
+
+    const productId = product.id;
+
+    // Check if taxes table exists
+    db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='taxes'", (err, tables) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking taxes table: ' + err.message });
+      }
+
+      // If table doesn't exist, return empty array
+      if (!tables || tables.length === 0) {
+        return res.json({ taxes: [], productId });
+      }
+
+      // Fetch active taxes for this product
+      db.all(`
+        SELECT 
+          id,
+          product_id,
+          name,
+          type,
+          value,
+          display_order
+        FROM taxes
+        WHERE product_id = ? AND is_active = 1
+        ORDER BY display_order ASC, created_at ASC
+      `, [productId], (err, taxes) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error fetching taxes: ' + err.message });
+        }
+        res.json({ taxes: taxes || [], productId });
+      });
+    });
+  });
+});
+
+
+// Orders API - Create order
+app.post('/api/orders', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const { 
+    productId, 
+    deliveryAddress, 
+    aptSuite, 
+    scheduledDeliveryDateTime, 
+    bagType, 
+    orderRequest,
+    cartItems,
+    subtotal,
+    taxes,
+    deliveryFee,
+    total
+  } = req.body;
+
+  // Validation
+  if (!productId) {
+    return res.status(400).json({ error: 'Product ID is required' });
+  }
+  if (!deliveryAddress || !deliveryAddress.trim()) {
+    return res.status(400).json({ error: 'Delivery address is required' });
+  }
+  if (!bagType || !['normal', 'discrete'].includes(bagType)) {
+    return res.status(400).json({ error: 'Valid bag type is required' });
+  }
+  if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
+    return res.status(400).json({ error: 'Cart items are required' });
+  }
+  if (subtotal === undefined || taxes === undefined || deliveryFee === undefined || total === undefined) {
+    return res.status(400).json({ error: 'All price fields are required' });
+  }
+
+  // Check if user has access to this product
+  checkProductAccess(userId, req.user.role, productId, (err, hasAccess) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking product access' });
+    }
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this product' });
+    }
+
+    // Verify product exists
+    db.get('SELECT id FROM products WHERE id = ?', [productId], (err, product) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking product' });
+      }
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      // Generate unique order number
+      const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      const status = 'pending';
+
+      // Insert order
+      db.run(`
+        INSERT INTO orders (
+          user_id, product_id, order_number, status, 
+          delivery_address, apt_suite, scheduled_delivery_datetime, 
+          bag_type, order_request, subtotal, taxes, delivery_fee, total
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        userId, productId, orderNumber, status,
+        deliveryAddress.trim(), aptSuite ? aptSuite.trim() : null,
+        scheduledDeliveryDateTime || null, bagType,
+        orderRequest ? orderRequest.trim() : null,
+        subtotal, taxes, deliveryFee, total
+      ], function(err) {
+        if (err) {
+          console.error('Error creating order:', err);
+          return res.status(500).json({ error: 'Error creating order: ' + err.message });
+        }
+
+        const orderId = this.lastID;
+
+        // Insert order items
+        const stmt = db.prepare(`
+          INSERT INTO order_items (
+            order_id, product_item_id, product_item_name, product_item_description,
+            product_item_image_url, quantity, price, subtotal
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        let itemsInserted = 0;
+        let hasError = false;
+
+        cartItems.forEach((item) => {
+          if (hasError) return;
+
+          const itemSubtotal = (item.price || 0) * (item.quantity || 1);
+          stmt.run([
+            orderId,
+            item.id,
+            item.name || 'Unnamed Product',
+            item.description || null,
+            item.image_url || null,
+            item.quantity || 1,
+            item.price || 0,
+            itemSubtotal
+          ], (err) => {
+            if (err) {
+              console.error('Error inserting order item:', err);
+              hasError = true;
+            } else {
+              itemsInserted++;
+              if (itemsInserted === cartItems.length) {
+                stmt.finalize();
+                if (hasError) {
+                  // Rollback order if items failed
+                  db.run('DELETE FROM orders WHERE id = ?', [orderId], () => {
+                    return res.status(500).json({ error: 'Error creating order items' });
+                  });
+                } else {
+                  res.status(201).json({ 
+                    message: 'Order created successfully', 
+                    orderId,
+                    orderNumber 
+                  });
+                }
+              }
+            }
+          });
+        });
+      });
+    });
+  });
+});
+
+// Orders API - Get user orders
+app.get('/api/orders', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+
+  // Check if orders table exists
+  db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'", (err, tables) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking orders table: ' + err.message });
+    }
+
+    if (!tables || tables.length === 0) {
+      return res.json({ orders: [] });
+    }
+
+    // Fetch user orders
+    db.all(`
+      SELECT 
+        o.id,
+        o.user_id,
+        o.product_id,
+        o.order_number,
+        o.status,
+        o.delivery_address,
+        o.apt_suite,
+        o.scheduled_delivery_datetime,
+        o.bag_type,
+        o.order_request,
+        o.subtotal,
+        o.taxes,
+        o.delivery_fee,
+        o.total,
+        o.created_at,
+        o.updated_at,
+        p.name as product_name
+      FROM orders o
+      LEFT JOIN products p ON o.product_id = p.id
+      WHERE o.user_id = ?
+      ORDER BY o.created_at DESC
+    `, [userId], (err, orders) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching orders: ' + err.message });
+      }
+
+      // For each order, fetch order items
+      if (!orders || orders.length === 0) {
+        return res.json({ orders: [] });
+      }
+
+      const ordersWithItems = [];
+      let processed = 0;
+
+      orders.forEach((order) => {
+        db.all(`
+          SELECT 
+            id,
+            order_id,
+            product_item_id,
+            product_item_name,
+            product_item_description,
+            product_item_image_url,
+            quantity,
+            price,
+            subtotal
+          FROM order_items
+          WHERE order_id = ?
+          ORDER BY id ASC
+        `, [order.id], (err, items) => {
+          if (err) {
+            console.error('Error fetching order items:', err);
+          }
+
+          ordersWithItems.push({
+            ...order,
+            items: items || []
+          });
+
+          processed++;
+          if (processed === orders.length) {
+            res.json({ orders: ordersWithItems });
+          }
+        });
+      });
+    });
+  });
+});
+
+// Orders API - Get single order by ID
+app.get('/api/orders/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  // Check if orders table exists
+  db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'", (err, tables) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking orders table: ' + err.message });
+    }
+
+    if (!tables || tables.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Fetch order
+    db.get(`
+      SELECT 
+        o.id,
+        o.user_id,
+        o.product_id,
+        o.order_number,
+        o.status,
+        o.delivery_address,
+        o.apt_suite,
+        o.scheduled_delivery_datetime,
+        o.bag_type,
+        o.order_request,
+        o.subtotal,
+        o.taxes,
+        o.delivery_fee,
+        o.total,
+        o.created_at,
+        o.updated_at,
+        p.name as product_name
+      FROM orders o
+      LEFT JOIN products p ON o.product_id = p.id
+      WHERE o.id = ? AND o.user_id = ?
+    `, [id, userId], (err, order) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching order: ' + err.message });
+      }
+
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      // Fetch order items
+      db.all(`
+        SELECT 
+          id,
+          order_id,
+          product_item_id,
+          product_item_name,
+          product_item_description,
+          product_item_image_url,
+          quantity,
+          price,
+          subtotal
+        FROM order_items
+        WHERE order_id = ?
+        ORDER BY id ASC
+      `, [order.id], (err, items) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error fetching order items: ' + err.message });
+        }
+
+        res.json({ 
+          order: {
+            ...order,
+            items: items || []
+          }
+        });
+      });
+    });
+  });
+});
+
+// Orders API - Cancel order
+app.put('/api/orders/:id/cancel', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  // Check if orders table exists
+  db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'", (err, tables) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking orders table: ' + err.message });
+    }
+
+    if (!tables || tables.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Check if order exists and belongs to user
+    db.get('SELECT id, status FROM orders WHERE id = ? AND user_id = ?', [id, userId], (err, order) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking order' });
+      }
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      // Only allow cancellation if status is pending, confirmed, preparing, or arriving
+      if (!['pending', 'confirmed', 'preparing', 'arriving'].includes(order.status)) {
+        return res.status(400).json({ error: 'Order cannot be cancelled. Current status: ' + order.status });
+      }
+
+      // Update order status to cancelled
+      db.run(
+        'UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?',
+        ['cancelled', id, userId],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Error cancelling order: ' + err.message });
+          }
+          if (this.changes === 0) {
+            return res.status(404).json({ error: 'Order not found' });
+          }
+          res.json({ message: 'Order cancelled successfully' });
+        }
+      );
+    });
+  });
+});
+
+// Admin Orders API - Get all orders for a product
+app.get('/api/products/:id/orders', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const productIdNum = parseInt(id);
+
+  if (isNaN(productIdNum)) {
+    return res.status(400).json({ error: 'Invalid product ID' });
+  }
+
+  checkProductAccess(req.user.id, req.user.role, productIdNum, (err, hasAccess) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking product access' });
+    }
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this product' });
+    }
+
+    db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'", (err, tables) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking orders table: ' + err.message });
+      }
+      if (!tables || tables.length === 0) {
+        return res.json({ orders: [] });
+      }
+
+      db.all(`
+        SELECT 
+          o.id,
+          o.user_id,
+          o.product_id,
+          o.order_number,
+          o.status,
+          o.delivery_address,
+          o.apt_suite,
+          o.scheduled_delivery_datetime,
+          o.bag_type,
+          o.order_request,
+          o.subtotal,
+          o.taxes,
+          o.delivery_fee,
+          o.total,
+          o.created_at,
+          o.updated_at,
+          u.first_name,
+          u.last_name,
+          u.email,
+          u.phone
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.product_id = ?
+        ORDER BY o.created_at DESC
+      `, [productIdNum], (err, orders) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error fetching orders: ' + err.message });
+        }
+
+        if (!orders || orders.length === 0) {
+          return res.json({ orders: [] });
+        }
+
+        const ordersWithItems = [];
+        let processed = 0;
+
+        orders.forEach((order) => {
+          db.all(`
+            SELECT 
+              id,
+              order_id,
+              product_item_id,
+              product_item_name,
+              product_item_description,
+              product_item_image_url,
+              quantity,
+              price,
+              subtotal
+            FROM order_items
+            WHERE order_id = ?
+          `, [order.id], (err, items) => {
+            if (err) {
+              console.error('Error fetching order items:', err);
+            }
+            ordersWithItems.push({
+              ...order,
+              items: items || []
+            });
+            processed++;
+            if (processed === orders.length) {
+              res.json({ orders: ordersWithItems });
+            }
+          });
+        });
+      });
+    });
+  });
+});
+
+// Admin Orders API - Update order status
+app.put('/api/orders/:id/status', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  const validStatuses = ['pending', 'confirmed', 'preparing', 'arriving', 'completed', 'cancelled', 'rejected'];
+  if (!status || !validStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') });
+  }
+
+  db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'", (err, tables) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error checking orders table: ' + err.message });
+    }
+    if (!tables || tables.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Get order to check product access
+    db.get('SELECT product_id FROM orders WHERE id = ?', [id], (err, order) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error checking order' });
+      }
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      checkProductAccess(req.user.id, req.user.role, order.product_id, (err, hasAccess) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error checking product access' });
+        }
+        if (!hasAccess) {
+          return res.status(403).json({ error: 'You do not have access to this product' });
+        }
+
+        // Update order status
+        db.run(
+          'UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [status, id],
+          function(err) {
+            if (err) {
+              return res.status(500).json({ error: 'Error updating order status: ' + err.message });
+            }
+            if (this.changes === 0) {
+              return res.status(404).json({ error: 'Order not found' });
+            }
+            res.json({ message: 'Order status updated successfully', status });
+          }
+        );
+      });
     });
   });
 });

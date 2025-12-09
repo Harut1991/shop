@@ -50,3 +50,4 @@ const API_URL = 'http://localhost:5000/api';
 
 But this will cause CORS issues and is NOT recommended for development!
 
+

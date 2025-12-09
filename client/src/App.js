@@ -8,6 +8,8 @@ import ProductDetail from './pages/ProductDetail';
 import ProductHome from './pages/ProductHome';
 import Shop from './pages/Shop';
 import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
+import Orders from './pages/Orders';
 import About from './pages/About';
 import ProductItemDetail from './pages/ProductItemDetail';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -23,6 +25,8 @@ function App() {
               <Route path="/" element={<ProductHome />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/orders" element={<Orders />} />
               <Route path="/product/:id" element={<ProductItemDetail />} />
               <Route path="/about" element={<About />} />
               <Route path="/admin/login" element={<Login />} />

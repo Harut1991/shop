@@ -26,7 +26,8 @@ import {
   Switch,
   InputNumber,
   Collapse,
-  Upload
+  Upload,
+  Empty
 } from 'antd';
 import { 
   LogoutOutlined, 
@@ -35,12 +36,14 @@ import {
   DeleteOutlined,
   DragOutlined,
   MenuOutlined,
-  UploadOutlined
+  UploadOutlined,
+  EyeOutlined,
+  ShoppingCartOutlined
 } from '@ant-design/icons';
 import './ProductDetail.css';
 import { getImageUrl, openImageInNewTab } from '../utils/imageUtils';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Header, Content } = Layout;
 const { Option } = Select;
 const API_URL = process.env.REACT_APP_API_URL || '/api';
@@ -93,6 +96,19 @@ const ProductDetail = () => {
   const [showBrandModal, setShowBrandModal] = useState(false);
   const [editingBrand, setEditingBrand] = useState(null);
   const [brandForm] = Form.useForm();
+
+  // Tax management states
+  const [taxes, setTaxes] = useState([]);
+  const [loadingTaxes, setLoadingTaxes] = useState(false);
+  const [showTaxModal, setShowTaxModal] = useState(false);
+  const [editingTax, setEditingTax] = useState(null);
+  const [taxForm] = Form.useForm();
+
+  // Orders management states
+  const [orders, setOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showOrderDetail, setShowOrderDetail] = useState(false);
 
   // Track which tabs have been loaded
   const [loadedTabs, setLoadedTabs] = useState(new Set());
@@ -620,6 +636,163 @@ const ProductDetail = () => {
     setShowBrandModal(true);
   };
 
+  const fetchTaxes = async () => {
+    try {
+      setLoadingTaxes(true);
+      const response = await axios.get(`${API_URL}/products/${id}/taxes`);
+      setTaxes(response.data.taxes || []);
+    } catch (error) {
+      console.error('Error fetching taxes:', error);
+      message.error('Failed to fetch taxes');
+    } finally {
+      setLoadingTaxes(false);
+    }
+  };
+
+  const handleCreateTax = async (values) => {
+    try {
+      await axios.post(`${API_URL}/products/${id}/taxes`, {
+        name: values.name,
+        type: values.type,
+        value: values.value,
+        display_order: values.display_order || 0,
+        is_active: values.is_active !== undefined ? values.is_active : true
+      });
+      message.success('Tax created successfully');
+      setShowTaxModal(false);
+      taxForm.resetFields();
+      fetchTaxes();
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Failed to create tax');
+    }
+  };
+
+  const handleUpdateTax = async (values) => {
+    try {
+      await axios.put(`${API_URL}/taxes/${editingTax.id}`, {
+        name: values.name,
+        type: values.type,
+        value: values.value,
+        display_order: values.display_order || 0,
+        is_active: values.is_active !== undefined ? values.is_active : true
+      });
+      message.success('Tax updated successfully');
+      setShowTaxModal(false);
+      setEditingTax(null);
+      taxForm.resetFields();
+      fetchTaxes();
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Failed to update tax');
+    }
+  };
+
+  const handleDeleteTax = async (taxId) => {
+    try {
+      await axios.delete(`${API_URL}/taxes/${taxId}?productId=${id}`);
+      message.success('Tax deleted successfully');
+      fetchTaxes();
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Failed to delete tax');
+    }
+  };
+
+  const openEditTax = (tax) => {
+    setEditingTax(tax);
+    taxForm.setFieldsValue({
+      name: tax.name,
+      type: tax.type,
+      value: tax.value,
+      display_order: tax.display_order || 0,
+      is_active: tax.is_active === 1
+    });
+    setShowTaxModal(true);
+  };
+
+  const openAddTax = () => {
+    setEditingTax(null);
+    taxForm.resetFields();
+    taxForm.setFieldsValue({
+      type: 'percentage',
+      is_active: true,
+      display_order: 0
+    });
+    setShowTaxModal(true);
+  };
+
+  // Orders management functions
+  const fetchOrders = async () => {
+    try {
+      setLoadingOrders(true);
+      const response = await axios.get(`${API_URL}/products/${id}/orders`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setOrders(response.data.orders || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch orders';
+      message.error(errorMessage);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId, status) => {
+    try {
+      await axios.put(`${API_URL}/orders/${orderId}/status`, { status }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      message.success('Order status updated successfully');
+      fetchOrders();
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Failed to update order status');
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'orange';
+      case 'confirmed':
+        return 'blue';
+      case 'preparing':
+        return 'cyan';
+      case 'arriving':
+        return 'purple';
+      case 'completed':
+        return 'green';
+      case 'cancelled':
+      case 'rejected':
+        return 'red';
+      default:
+        return 'default';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'confirmed':
+        return 'Confirmed';
+      case 'preparing':
+        return 'Preparing';
+      case 'arriving':
+        return 'Arriving';
+      case 'completed':
+        return 'Completed';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return status;
+    }
+  };
+
   const handleCreateProductItem = async (values) => {
     try {
       let imageUrl = values.image_url;
@@ -870,6 +1043,18 @@ const ProductDetail = () => {
                   if (!loadedTabs.has('brands')) {
                     fetchBrands();
                     setLoadedTabs(prev => new Set([...prev, 'brands']));
+                  }
+                  break;
+                case 'taxes':
+                  if (!loadedTabs.has('taxes')) {
+                    fetchTaxes();
+                    setLoadedTabs(prev => new Set([...prev, 'taxes']));
+                  }
+                  break;
+                case 'orders':
+                  if (!loadedTabs.has('orders')) {
+                    fetchOrders();
+                    setLoadedTabs(prev => new Set([...prev, 'orders']));
                   }
                   break;
                 default:
@@ -1830,6 +2015,524 @@ const ProductDetail = () => {
                         </Space>
                       </Form.Item>
                     </Form>
+                  </Modal>
+                </div>
+              </Tabs.TabPane>
+            )}
+
+            {isAdmin() && (
+              <Tabs.TabPane tab="Taxes" key="taxes">
+                <div>
+                  <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Title level={4} style={{ margin: 0 }}>Taxes</Title>
+                    <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openAddTax}>
+                      Add Tax
+                    </Button>
+                  </div>
+
+                  {loadingTaxes ? (
+                    <Spin size="large" />
+                  ) : taxes.length === 0 ? (
+                    <Card size="small">
+                      <p style={{ margin: 0, color: '#999' }}>No taxes found. Click "Add Tax" to create one.</p>
+                    </Card>
+                  ) : (
+                    <Table
+                      dataSource={taxes}
+                      rowKey="id"
+                      columns={[
+                        {
+                          title: 'Name',
+                          dataIndex: 'name',
+                          key: 'name',
+                        },
+                        {
+                          title: 'Type',
+                          dataIndex: 'type',
+                          key: 'type',
+                          render: (type) => (
+                            <Tag color={type === 'percentage' ? 'blue' : 'green'}>
+                              {type === 'percentage' ? 'Percentage' : 'Fixed'}
+                            </Tag>
+                          ),
+                        },
+                        {
+                          title: 'Value',
+                          key: 'value',
+                          render: (_, tax) => (
+                            <span>
+                              {tax.type === 'percentage' 
+                                ? `${tax.value}%` 
+                                : `$${parseFloat(tax.value).toFixed(2)}`}
+                            </span>
+                          ),
+                        },
+                        {
+                          title: 'Status',
+                          dataIndex: 'is_active',
+                          key: 'is_active',
+                          render: (isActive) => (
+                            <Tag color={isActive === 1 ? 'green' : 'red'}>
+                              {isActive === 1 ? 'Active' : 'Inactive'}
+                            </Tag>
+                          ),
+                        },
+                        {
+                          title: 'Actions',
+                          key: 'actions',
+                          render: (_, tax) => (
+                            <Space>
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<EditOutlined />}
+                                onClick={() => openEditTax(tax)}
+                              >
+                                Edit
+                              </Button>
+                              <Popconfirm
+                                title="Delete this tax?"
+                                onConfirm={() => handleDeleteTax(tax.id)}
+                                okText="Yes"
+                                cancelText="No"
+                              >
+                                <Button size="small" type="text" danger icon={<DeleteOutlined />}>
+                                  Delete
+                                </Button>
+                              </Popconfirm>
+                            </Space>
+                          ),
+                        },
+                      ]}
+                      pagination={false}
+                    />
+                  )}
+
+                  {/* Tax Modal */}
+                  <Modal
+                    title={editingTax ? 'Edit Tax' : 'Add Tax'}
+                    open={showTaxModal}
+                    onCancel={() => {
+                      setShowTaxModal(false);
+                      setEditingTax(null);
+                      taxForm.resetFields();
+                    }}
+                    footer={null}
+                    width={600}
+                  >
+                    <Form
+                      form={taxForm}
+                      layout="vertical"
+                      onFinish={editingTax ? handleUpdateTax : handleCreateTax}
+                    >
+                      <Form.Item
+                        name="name"
+                        label="Tax Name"
+                        rules={[{ required: true, message: 'Tax name is required' }]}
+                      >
+                        <Input placeholder="e.g., Sales Tax, VAT, Service Tax" />
+                      </Form.Item>
+                      <Form.Item
+                        name="type"
+                        label="Tax Type"
+                        rules={[{ required: true, message: 'Tax type is required' }]}
+                      >
+                        <Select>
+                          <Option value="percentage">Percentage (%)</Option>
+                          <Option value="fixed">Fixed Amount ($)</Option>
+                        </Select>
+                      </Form.Item>
+                      <Form.Item
+                        name="value"
+                        label="Tax Value"
+                        rules={[
+                          { required: true, message: 'Tax value is required' },
+                          { type: 'number', min: 0, message: 'Tax value must be non-negative' }
+                        ]}
+                      >
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={0}
+                          step={0.01}
+                          placeholder={taxForm.getFieldValue('type') === 'percentage' ? 'Enter percentage (e.g., 10)' : 'Enter amount (e.g., 5.00)'}
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        name="display_order"
+                        label="Display Order"
+                      >
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={0}
+                          placeholder="Order in which tax appears (0 = first)"
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        name="is_active"
+                        label="Status"
+                        valuePropName="checked"
+                        initialValue={true}
+                      >
+                        <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+                      </Form.Item>
+                      <Form.Item>
+                        <Space>
+                          <Button onClick={() => {
+                            setShowTaxModal(false);
+                            setEditingTax(null);
+                            taxForm.resetFields();
+                          }}>
+                            Cancel
+                          </Button>
+                          <Button type="primary" htmlType="submit">
+                            {editingTax ? 'Update' : 'Create'}
+                          </Button>
+                        </Space>
+                      </Form.Item>
+                    </Form>
+                  </Modal>
+                </div>
+              </Tabs.TabPane>
+            )}
+
+            {isAdmin() && (
+              <Tabs.TabPane tab="Orders" key="orders">
+                <div>
+                  <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Title level={4} style={{ margin: 0 }}>Product Orders</Title>
+                  </div>
+
+                  {loadingOrders ? (
+                    <Spin size="large" />
+                  ) : orders.length === 0 ? (
+                    <Card size="small">
+                      <p style={{ margin: 0, color: '#999' }}>No orders found.</p>
+                    </Card>
+                  ) : (
+                    <Table
+                      dataSource={orders}
+                      rowKey="id"
+                      columns={[
+                        {
+                          title: 'Order Number',
+                          dataIndex: 'order_number',
+                          key: 'order_number',
+                          render: (text) => <Text strong>{text}</Text>,
+                        },
+                        {
+                          title: 'Customer',
+                          key: 'customer',
+                          render: (_, record) => (
+                            <div>
+                              <div>{record.first_name} {record.last_name}</div>
+                              <Text type="secondary" style={{ fontSize: '12px' }}>{record.email}</Text>
+                              {record.phone && (
+                                <div style={{ fontSize: '12px', color: '#666' }}>{record.phone}</div>
+                              )}
+                            </div>
+                          ),
+                        },
+                        {
+                          title: 'Date',
+                          dataIndex: 'created_at',
+                          key: 'created_at',
+                          render: (date) => {
+                            if (!date) return '-';
+                            const d = new Date(date);
+                            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+                          },
+                        },
+                        {
+                          title: 'Status',
+                          dataIndex: 'status',
+                          key: 'status',
+                          render: (status) => (
+                            <Tag color={getStatusColor(status)}>
+                              {getStatusText(status)}
+                            </Tag>
+                          ),
+                        },
+                        {
+                          title: 'Total',
+                          dataIndex: 'total',
+                          key: 'total',
+                          render: (total) => <Text strong>${total ? parseFloat(total).toFixed(2) : '0.00'}</Text>,
+                        },
+                        {
+                          title: 'Actions',
+                          key: 'actions',
+                          render: (_, record) => (
+                            <Space>
+                              <Button
+                                size="small"
+                                icon={<EyeOutlined />}
+                                onClick={() => {
+                                  setSelectedOrder(record);
+                                  setShowOrderDetail(true);
+                                }}
+                              >
+                                View
+                              </Button>
+                              {record.status === 'pending' && (
+                                <>
+                                  <Button
+                                    size="small"
+                                    type="primary"
+                                    onClick={() => handleUpdateOrderStatus(record.id, 'confirmed')}
+                                  >
+                                    Confirm
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    danger
+                                    onClick={() => handleUpdateOrderStatus(record.id, 'rejected')}
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                              {record.status === 'confirmed' && (
+                                <Button
+                                  size="small"
+                                  onClick={() => handleUpdateOrderStatus(record.id, 'preparing')}
+                                >
+                                  Mark Preparing
+                                </Button>
+                              )}
+                              {record.status === 'preparing' && (
+                                <Button
+                                  size="small"
+                                  onClick={() => handleUpdateOrderStatus(record.id, 'arriving')}
+                                >
+                                  Mark Arriving
+                                </Button>
+                              )}
+                              {record.status === 'arriving' && (
+                                <Button
+                                  size="small"
+                                  type="primary"
+                                  onClick={() => handleUpdateOrderStatus(record.id, 'completed')}
+                                >
+                                  Mark Complete
+                                </Button>
+                              )}
+                            </Space>
+                          ),
+                        },
+                      ]}
+                      pagination={{ pageSize: 10 }}
+                    />
+                  )}
+
+                  {/* Order Detail Modal */}
+                  <Modal
+                    title={`Order Details - ${selectedOrder?.order_number || ''}`}
+                    open={showOrderDetail}
+                    onCancel={() => {
+                      setShowOrderDetail(false);
+                      setSelectedOrder(null);
+                    }}
+                    footer={null}
+                    width={800}
+                  >
+                    {selectedOrder && (
+                      <div>
+                        <Descriptions bordered column={1} style={{ marginBottom: '24px' }}>
+                          <Descriptions.Item label="Order Number">
+                            <Text strong>{selectedOrder.order_number}</Text>
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Customer">
+                            <div>
+                              <div>{selectedOrder.first_name} {selectedOrder.last_name}</div>
+                              <Text type="secondary" style={{ fontSize: '12px' }}>{selectedOrder.email}</Text>
+                              {selectedOrder.phone && (
+                                <div style={{ fontSize: '12px', color: '#666' }}>{selectedOrder.phone}</div>
+                              )}
+                            </div>
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Status">
+                            <Tag color={getStatusColor(selectedOrder.status)}>
+                              {getStatusText(selectedOrder.status)}
+                            </Tag>
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Order Date">
+                            {selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString() : '-'}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Delivery Address">
+                            {selectedOrder.delivery_address}
+                            {selectedOrder.apt_suite && (
+                              <div style={{ marginTop: '4px', color: '#666' }}>
+                                Apt./Suite: {selectedOrder.apt_suite}
+                              </div>
+                            )}
+                          </Descriptions.Item>
+                          {selectedOrder.scheduled_delivery_datetime && (
+                            <Descriptions.Item label="Scheduled Delivery">
+                              {selectedOrder.scheduled_delivery_datetime}
+                            </Descriptions.Item>
+                          )}
+                          <Descriptions.Item label="Bag Type">
+                            {selectedOrder.bag_type === 'normal' ? 'Normal Bag' : 'Discrete Bag'}
+                          </Descriptions.Item>
+                          {selectedOrder.order_request && (
+                            <Descriptions.Item label="Order Request">
+                              {selectedOrder.order_request}
+                            </Descriptions.Item>
+                          )}
+                        </Descriptions>
+
+                        <Title level={5} style={{ marginBottom: '16px' }}>Order Items</Title>
+                        <div style={{ marginBottom: '24px' }}>
+                          {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                              {selectedOrder.items.map((item) => (
+                                <div
+                                  key={item.id}
+                                  style={{
+                                    display: 'flex',
+                                    gap: '12px',
+                                    padding: '12px',
+                                    background: '#fafafa',
+                                    borderRadius: '4px'
+                                  }}
+                                >
+                                  {item.product_item_image_url ? (
+                                    <img
+                                      src={getImageUrl(item.product_item_image_url)}
+                                      alt={item.product_item_name}
+                                      style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: '4px' }}
+                                    />
+                                  ) : (
+                                    <div
+                                      style={{
+                                        width: 60,
+                                        height: 60,
+                                        background: '#f0f0f0',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                      }}
+                                    >
+                                      <ShoppingCartOutlined style={{ fontSize: '24px', color: '#ccc' }} />
+                                    </div>
+                                  )}
+                                  <div style={{ flex: 1 }}>
+                                    <Text strong style={{ display: 'block' }}>
+                                      {item.product_item_name}
+                                    </Text>
+                                    {item.product_item_description && (
+                                      <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '4px' }}>
+                                        {item.product_item_description}
+                                      </Text>
+                                    )}
+                                    <Text style={{ fontSize: '12px', color: '#666', display: 'block', marginTop: '4px' }}>
+                                      Quantity: {item.quantity} × ${(item.price || 0).toFixed(2)}
+                                    </Text>
+                                  </div>
+                                  <Text strong>${(item.subtotal || 0).toFixed(2)}</Text>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <Empty description="No items found" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                          )}
+                        </div>
+
+                        <div style={{ 
+                          padding: '16px', 
+                          background: '#fafafa', 
+                          borderRadius: '4px',
+                          marginBottom: '16px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <Text>Subtotal:</Text>
+                            <Text>${(selectedOrder.subtotal || 0).toFixed(2)}</Text>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <Text>Taxes:</Text>
+                            <Text>${(selectedOrder.taxes || 0).toFixed(2)}</Text>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <Text>Delivery Fee:</Text>
+                            <Text>${(selectedOrder.delivery_fee || 0).toFixed(2)}</Text>
+                          </div>
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            marginTop: '12px',
+                            paddingTop: '12px',
+                            borderTop: '1px solid #e8e8e8'
+                          }}>
+                            <Text strong style={{ fontSize: '16px' }}>Total:</Text>
+                            <Title level={4} style={{ margin: 0, color: '#1890ff' }}>
+                              ${(selectedOrder.total || 0).toFixed(2)}
+                            </Title>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          {selectedOrder.status === 'pending' && (
+                            <>
+                              <Button
+                                type="primary"
+                                onClick={() => {
+                                  handleUpdateOrderStatus(selectedOrder.id, 'confirmed');
+                                  setShowOrderDetail(false);
+                                  setSelectedOrder(null);
+                                }}
+                              >
+                                Confirm Order
+                              </Button>
+                              <Button
+                                danger
+                                onClick={() => {
+                                  handleUpdateOrderStatus(selectedOrder.id, 'rejected');
+                                  setShowOrderDetail(false);
+                                  setSelectedOrder(null);
+                                }}
+                              >
+                                Reject Order
+                              </Button>
+                            </>
+                          )}
+                          {selectedOrder.status === 'confirmed' && (
+                            <Button
+                              onClick={() => {
+                                handleUpdateOrderStatus(selectedOrder.id, 'preparing');
+                                setShowOrderDetail(false);
+                                setSelectedOrder(null);
+                              }}
+                            >
+                              Mark as Preparing
+                            </Button>
+                          )}
+                          {selectedOrder.status === 'preparing' && (
+                            <Button
+                              onClick={() => {
+                                handleUpdateOrderStatus(selectedOrder.id, 'arriving');
+                                setShowOrderDetail(false);
+                                setSelectedOrder(null);
+                              }}
+                            >
+                              Mark as Arriving
+                            </Button>
+                          )}
+                          {selectedOrder.status === 'arriving' && (
+                            <Button
+                              type="primary"
+                              onClick={() => {
+                                handleUpdateOrderStatus(selectedOrder.id, 'completed');
+                                setShowOrderDetail(false);
+                                setSelectedOrder(null);
+                              }}
+                            >
+                              Mark as Complete
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </Modal>
                 </div>
               </Tabs.TabPane>

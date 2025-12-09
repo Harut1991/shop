@@ -142,6 +142,12 @@ const Header = ({ productId }) => {
                       },
                       { type: 'divider' },
                       {
+                        key: 'orders',
+                        label: 'Orders',
+                        onClick: () => navigate('/orders'),
+                      },
+                      { type: 'divider' },
+                      {
                         key: 'logout',
                         label: 'Sign Out',
                         onClick: logout,
